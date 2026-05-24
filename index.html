@@ -1,0 +1,1416 @@
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+
+<style>
+  :root {
+    --bg: #faf9f5;
+    --bg-card: #ffffff;
+    --bg-soft: #f1efe8;
+    --text: #1a1a1a;
+    --text-muted: #6b6962;
+    --text-faint: #888780;
+    --border: #d8d6cf;
+    --border-light: #e8e6df;
+    --grid-dot: #e0ddd2;
+    --accent: #534ab7;
+    --shadow-soft: rgba(0,0,0,0.06);
+    --shadow-strong: rgba(0,0,0,0.12);
+  }
+  [data-theme="dark"] {
+    --bg: #1a1a1a;
+    --bg-card: #2a2a28;
+    --bg-soft: #333330;
+    --text: #f1efe8;
+    --text-muted: #b4b2a9;
+    --text-faint: #888780;
+    --border: #444441;
+    --border-light: #333330;
+    --grid-dot: #333330;
+    --accent: #7f77dd;
+    --shadow-soft: rgba(0,0,0,0.3);
+    --shadow-strong: rgba(0,0,0,0.5);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); transition: background 0.2s, color 0.2s; }
+  #root { height: 100vh; display: flex; flex-direction: column; }
+  .app { display: flex; flex-direction: column; height: 100vh; }
+  
+  .tabs-bar { display: flex; align-items: center; background: var(--bg-soft); padding: 0 8px; border-bottom: 1px solid var(--border-light); flex-shrink: 0; overflow-x: auto; }
+  .tab-item { display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 12px; cursor: pointer; border-right: 1px solid var(--border-light); color: var(--text-muted); white-space: nowrap; position: relative; max-width: 200px; }
+  .tab-item.active { background: var(--bg); color: var(--text); font-weight: 500; }
+  .tab-item:hover { background: var(--bg); }
+  .tab-name { overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
+  .tab-close { opacity: 0.5; padding: 0 2px; }
+  .tab-close:hover { opacity: 1; color: #e24b4a; }
+  .tab-add { padding: 8px 12px; font-size: 13px; color: var(--text-faint); cursor: pointer; }
+  .tab-add:hover { color: var(--text); }
+  
+  .toolbar { display: flex; align-items: center; gap: 6px; padding: 8px 12px; background: var(--bg-card); border-bottom: 1px solid var(--border-light); flex-shrink: 0; flex-wrap: wrap; }
+  .toolbar h1 { font-size: 14px; font-weight: 500; margin-right: 8px; color: var(--text); }
+  .toolbar .stats { font-size: 11px; color: var(--text-muted); margin-left: auto; display: flex; align-items: center; gap: 8px; }
+  .save-indicator { font-size: 10px; color: var(--text-faint); display: flex; align-items: center; gap: 4px; }
+  .save-indicator .dot { width: 6px; height: 6px; border-radius: 50%; background: #1D9E75; }
+  .save-indicator.saving .dot { background: #EF9F27; animation: pulse 1s infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+  
+  button { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer; color: var(--text); font-family: inherit; transition: all 0.15s; }
+  button:hover { background: var(--bg-soft); }
+  button:disabled { opacity: 0.4; cursor: not-allowed; }
+  button:active:not(:disabled) { transform: scale(0.98); }
+  button.primary { background: var(--text); color: var(--bg); border-color: var(--text); }
+  button.primary:hover { opacity: 0.85; }
+  button.danger:hover { background: #fcebeb; border-color: #e24b4a; color: #a32d2d; }
+  [data-theme="dark"] button.danger:hover { background: #501313; border-color: #e24b4a; color: #F09595; }
+  button.icon { padding: 5px 7px; }
+  
+  .main { display: flex; flex: 1; overflow: hidden; position: relative; }
+  .canvas-wrap { flex: 1; position: relative; overflow: hidden; background: var(--bg); background-image: radial-gradient(circle, var(--grid-dot) 1px, transparent 1px); background-size: 24px 24px; cursor: grab; }
+  .canvas-wrap.panning { cursor: grabbing; }
+  svg.edges { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+  svg.edges .edge-line { pointer-events: stroke; cursor: pointer; }
+  
+  .group-region { position: absolute; border-radius: 16px; pointer-events: none; border: 2px dashed; }
+  .group-label { position: absolute; font-size: 11px; font-weight: 500; padding: 3px 8px; border-radius: 4px; pointer-events: auto; cursor: pointer; color: #fff; }
+  
+  .nodes-layer { position: absolute; top: 0; left: 0; transform-origin: 0 0; }
+  .node { position: absolute; min-width: 180px; max-width: 240px; background: var(--bg-card); border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px; cursor: grab; user-select: none; transition: box-shadow 0.15s, border-color 0.15s; }
+  .node:hover { border-color: var(--text-faint); box-shadow: 0 2px 8px var(--shadow-soft); }
+  .node.dragging { cursor: grabbing; box-shadow: 0 6px 16px var(--shadow-strong); z-index: 100; }
+  .node.selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(83,74,183,0.15); }
+  .node.multi-selected { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(83,74,183,0.4); }
+  .node.connecting-source { border-color: #1D9E75; box-shadow: 0 0 0 3px rgba(29,158,117,0.2); }
+  .node.search-focus { animation: highlight 1.5s ease-out; }
+  @keyframes highlight { 0%, 100% { box-shadow: 0 0 0 3px rgba(83,74,183,0); } 30% { box-shadow: 0 0 0 8px rgba(83,74,183,0.4); } }
+  
+  .node.status-question { background: #FAEEDA; border-color: #EF9F27; color: #412402; }
+  .node.status-answer { background: #E6F1FB; border-color: #378ADD; color: #042C53; }
+  .node.status-done { background: #E1F5EE; border-color: #1D9E75; color: #04342C; }
+  [data-theme="dark"] .node.status-question { background: #4a3408; border-color: #EF9F27; color: #FAEEDA; }
+  [data-theme="dark"] .node.status-answer { background: #0C2540; border-color: #378ADD; color: #E6F1FB; }
+  [data-theme="dark"] .node.status-done { background: #0a3024; border-color: #1D9E75; color: #E1F5EE; }
+  
+  .node-title { font-size: 13px; font-weight: 500; line-height: 1.35; word-wrap: break-word; }
+  .node-image-thumb { width: 100%; max-height: 80px; object-fit: cover; border-radius: 4px; margin-top: 6px; display: block; }
+  .node-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 5px; }
+  .node-tag { font-size: 9px; padding: 1px 5px; border-radius: 3px; background: rgba(0,0,0,0.08); color: inherit; opacity: 0.85; }
+  [data-theme="dark"] .node-tag { background: rgba(255,255,255,0.12); }
+  .node-status { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-top: 6px; font-weight: 500; background: rgba(0,0,0,0.08); }
+  [data-theme="dark"] .node-status { background: rgba(255,255,255,0.12); }
+  .node-preview { font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .node.status-question .node-preview, .node.status-answer .node-preview, .node.status-done .node-preview { color: inherit; opacity: 0.75; }
+  
+  .node-anchor { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--bg-card); border: 2px solid var(--accent); right: -7px; top: 50%; transform: translateY(-50%); cursor: crosshair; opacity: 0; transition: opacity 0.15s; }
+  .node:hover .node-anchor, .node.selected .node-anchor { opacity: 1; }
+  .node-anchor:hover { background: var(--accent); transform: translateY(-50%) scale(1.3); }
+  
+  .group-badge { position: absolute; top: -8px; left: 8px; font-size: 9px; padding: 1px 6px; border-radius: 3px; font-weight: 500; color: #fff; }
+  
+  .sidebar { width: 380px; background: var(--bg-card); border-left: 1px solid var(--border-light); display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
+  .sidebar-empty { padding: 40px 24px; text-align: center; color: var(--text-faint); font-size: 13px; line-height: 1.6; }
+  .sidebar-header { padding: 10px 14px; border-bottom: 1px solid var(--border-light); display: flex; align-items: center; gap: 8px; }
+  .sidebar-title-input { flex: 1; border: none; outline: none; font-size: 15px; font-weight: 500; background: transparent; font-family: inherit; color: var(--text); }
+  .sidebar-body { flex: 1; overflow-y: auto; padding: 14px 16px; }
+  .sidebar-section { margin-bottom: 16px; }
+  .sidebar-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-faint); margin-bottom: 6px; }
+  .status-picker { display: flex; gap: 5px; }
+  .status-btn { flex: 1; padding: 5px 6px; font-size: 11px; border-radius: 5px; border: 1.5px solid var(--border); background: var(--bg-card); cursor: pointer; font-family: inherit; transition: all 0.15s; color: var(--text); }
+  .status-btn.active.idea { background: var(--bg-soft); border-color: #5F5E5A; }
+  .status-btn.active.question { background: #FAEEDA; border-color: #EF9F27; color: #633806; }
+  .status-btn.active.answer { background: #E6F1FB; border-color: #378ADD; color: #0C447C; }
+  .status-btn.active.done { background: #E1F5EE; border-color: #1D9E75; color: #04342C; }
+  
+  .editor-tabs { display: flex; gap: 4px; margin-bottom: 6px; }
+  .ed-tab { padding: 4px 10px; font-size: 12px; border-radius: 5px; cursor: pointer; color: var(--text-muted); }
+  .ed-tab.active { background: var(--bg-soft); color: var(--text); font-weight: 500; }
+  
+  textarea.markdown-input { width: 100%; min-height: 180px; border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-size: 13px; font-family: ui-monospace, "SF Mono", Menlo, monospace; resize: vertical; outline: none; line-height: 1.5; background: var(--bg-card); color: var(--text); }
+  textarea.markdown-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(83,74,183,0.1); }
+  
+  .markdown-preview { min-height: 180px; padding: 10px 12px; border: 1px solid var(--border-light); border-radius: 6px; font-size: 13px; line-height: 1.6; background: var(--bg-soft); color: var(--text); }
+  .markdown-preview h1, .markdown-preview h2, .markdown-preview h3 { font-weight: 500; margin: 12px 0 6px; }
+  .markdown-preview h1 { font-size: 16px; } .markdown-preview h2 { font-size: 15px; } .markdown-preview h3 { font-size: 14px; }
+  .markdown-preview p { margin: 6px 0; }
+  .markdown-preview ul, .markdown-preview ol { margin: 6px 0; padding-left: 20px; }
+  .markdown-preview code { background: var(--border-light); padding: 1px 5px; border-radius: 3px; font-size: 12px; font-family: ui-monospace, monospace; }
+  .markdown-preview pre { background: var(--border-light); padding: 8px 10px; border-radius: 6px; overflow-x: auto; margin: 6px 0; }
+  .markdown-preview pre code { background: none; padding: 0; }
+  .markdown-preview blockquote { border-left: 3px solid var(--border); padding-left: 10px; color: var(--text-muted); margin: 6px 0; }
+  .markdown-preview a { color: #378ADD; }
+  .markdown-preview img { max-width: 100%; border-radius: 6px; margin: 6px 0; }
+  
+  .sidebar-footer { padding: 10px 14px; border-top: 1px solid var(--border-light); display: flex; gap: 6px; }
+  
+  .help { position: absolute; bottom: 10px; left: 10px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 8px; padding: 8px 11px; font-size: 10px; color: var(--text-muted); line-height: 1.6; max-width: 280px; }
+  .help kbd { background: var(--bg-soft); border: 1px solid var(--border); border-radius: 3px; padding: 1px 4px; font-family: ui-monospace, monospace; font-size: 9px; color: var(--text); }
+  
+  .zoom-controls { position: absolute; bottom: 10px; right: 10px; display: flex; flex-direction: column; gap: 3px; }
+  .zoom-controls button { width: 28px; height: 28px; padding: 0; font-size: 14px; }
+  .zoom-level { text-align: center; font-size: 9px; color: var(--text-muted); padding: 1px; }
+  
+  .minimap { position: absolute; top: 10px; right: 10px; width: 180px; height: 130px; background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 8px; overflow: hidden; cursor: pointer; }
+  .minimap-svg { width: 100%; height: 100%; }
+  .minimap-viewport { fill: rgba(83,74,183,0.15); stroke: var(--accent); stroke-width: 1.5; }
+  
+  .empty-state { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; color: var(--text-faint); pointer-events: none; }
+  .empty-state h2 { font-size: 18px; font-weight: 500; margin-bottom: 8px; color: var(--text-muted); }
+  .empty-state p { font-size: 13px; line-height: 1.6; }
+  
+  .filter-bar { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+  .filter-chip { font-size: 11px; padding: 3px 9px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg-card); cursor: pointer; color: var(--text-muted); }
+  .filter-chip.active { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .search-input { border: 1px solid var(--border); border-radius: 6px; padding: 4px 9px; font-size: 12px; outline: none; font-family: inherit; width: 140px; background: var(--bg-card); color: var(--text); }
+  .search-input:focus { border-color: var(--accent); }
+  
+  .selection-box { position: absolute; border: 1.5px solid var(--accent); background: rgba(83,74,183,0.08); pointer-events: none; border-radius: 2px; }
+  
+  .tag-input-row { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 5px 6px; border: 1px solid var(--border); border-radius: 6px; min-height: 30px; background: var(--bg-card); }
+  .tag-pill { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; font-size: 11px; background: var(--bg-soft); border-radius: 10px; color: var(--text); }
+  .tag-pill .x { cursor: pointer; opacity: 0.6; font-size: 10px; }
+  .tag-pill .x:hover { opacity: 1; color: #e24b4a; }
+  .tag-input { flex: 1; min-width: 60px; border: none; outline: none; font-size: 11px; background: transparent; color: var(--text); font-family: inherit; }
+  
+  .group-list { display: flex; flex-direction: column; gap: 4px; }
+  .group-item { display: flex; align-items: center; gap: 6px; padding: 4px 6px; border-radius: 4px; font-size: 12px; }
+  .group-item:hover { background: var(--bg-soft); }
+  .group-color-dot { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+  .group-name { flex: 1; cursor: pointer; }
+  .group-count { font-size: 10px; color: var(--text-faint); }
+  
+  .modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.4); z-index: 500; display: flex; align-items: center; justify-content: center; }
+  .modal { background: var(--bg-card); border-radius: 10px; padding: 20px; max-width: 420px; width: 90%; box-shadow: 0 10px 40px rgba(0,0,0,0.2); max-height: 80vh; overflow-y: auto; }
+  .modal h3 { font-size: 14px; font-weight: 500; margin-bottom: 12px; }
+  .modal label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; margin-top: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .modal input[type="text"] { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: var(--bg-card); color: var(--text); font-family: inherit; }
+  .modal-actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
+  .color-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+  .color-swatch { width: 26px; height: 26px; border-radius: 5px; cursor: pointer; border: 2px solid transparent; }
+  .color-swatch.selected { border-color: var(--text); }
+  
+  @media print {
+    @page { size: A3 landscape; margin: 1cm; }
+    .tabs-bar, .toolbar, .sidebar, .help, .zoom-controls, .minimap { display: none !important; }
+    .canvas-wrap { background: white !important; background-image: none !important; overflow: visible !important; }
+    .node { box-shadow: none !important; page-break-inside: avoid; }
+  }
+  
+  @media (max-width: 768px) {
+    .sidebar { width: 100%; position: absolute; right: 0; top: 0; bottom: 0; z-index: 200; }
+    .toolbar h1 { font-size: 13px; }
+    .help, .minimap { display: none; }
+  }
+</style>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback, useMemo } = React;
+
+const STORAGE_KEY = 'mindmap-statnice-v2';
+const STATUSES = [
+  { id: 'idea', label: 'Nápad' },
+  { id: 'question', label: 'Otázka' },
+  { id: 'answer', label: 'Odpověď' },
+  { id: 'done', label: 'Hotovo' },
+];
+const GROUP_COLORS = [
+  '#534ab7', '#1D9E75', '#D85A30', '#D4537E',
+  '#378ADD', '#BA7517', '#E24B4A', '#639922',
+  '#7F77DD', '#5DCAA5', '#F0997B', '#ED93B1',
+  '#85B7EB', '#EF9F27', '#F09595', '#97C459',
+];
+
+const MAX_HISTORY = 50;
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.maps && parsed.activeMapId) return parsed;
+    }
+  } catch (e) {}
+  const firstMapId = uid();
+  return {
+    maps: {
+      [firstMapId]: {
+        id: firstMapId, name: 'Hlavní mapa',
+        nodes: [], edges: [], groups: [],
+        viewport: { x: 0, y: 0, zoom: 1 },
+      },
+    },
+    activeMapId: firstMapId,
+    mapOrder: [firstMapId],
+    theme: 'light',
+  };
+}
+
+function saveData(data) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch (e) { console.warn('Storage full', e); }
+}
+
+function uid() { return Math.random().toString(36).slice(2, 10); }
+
+function hexToRgba(hex, alpha) {
+  const h = hex.replace('#', '');
+  const r = parseInt(h.slice(0, 2), 16);
+  const g = parseInt(h.slice(2, 4), 16);
+  const b = parseInt(h.slice(4, 6), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function App() {
+  const [data, setData] = useState(loadData);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [connectingFrom, setConnectingFrom] = useState(null);
+  const [draggingNode, setDraggingNode] = useState(null);
+  const [panning, setPanning] = useState(false);
+  const [editorTab, setEditorTab] = useState('edit');
+  const [filter, setFilter] = useState('all');
+  const [groupFilter, setGroupFilter] = useState(null);
+  const [search, setSearch] = useState('');
+  const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
+  const [selectionBox, setSelectionBox] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [searchFocusId, setSearchFocusId] = useState(null);
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [tagInput, setTagInput] = useState('');
+  const [historyVersion, setHistoryVersion] = useState(0);
+  
+  const canvasRef = useRef(null);
+  const nodeRefs = useRef({});
+  const dragStateRef = useRef(null);
+  const panStateRef = useRef(null);
+  const selectionRef = useRef(null);
+  const historyRef = useRef({ past: [], future: [] });
+  const saveTimerRef = useRef(null);
+  
+  const activeMap = data.maps[data.activeMapId];
+  const { nodes = [], edges = [], groups = [], viewport = { x: 0, y: 0, zoom: 1 } } = activeMap || {};
+  const isDark = data.theme === 'dark';
+  
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', data.theme);
+  }, [data.theme]);
+  
+  useEffect(() => {
+    setSaving(true);
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveData(data);
+      setSaving(false);
+    }, 400);
+  }, [data]);
+  
+  const pushHistory = useCallback(() => {
+    historyRef.current.past.push(JSON.parse(JSON.stringify(activeMap)));
+    if (historyRef.current.past.length > MAX_HISTORY) historyRef.current.past.shift();
+    historyRef.current.future = [];
+    setHistoryVersion(v => v + 1);
+  }, [activeMap]);
+  
+  const updateActiveMap = useCallback((updater, recordHistory = true) => {
+    if (recordHistory) pushHistory();
+    setData(d => {
+      const m = d.maps[d.activeMapId];
+      const newMap = typeof updater === 'function' ? updater(m) : { ...m, ...updater };
+      return { ...d, maps: { ...d.maps, [d.activeMapId]: newMap } };
+    });
+  }, [pushHistory]);
+  
+  const undo = useCallback(() => {
+    if (historyRef.current.past.length === 0) return;
+    const prev = historyRef.current.past.pop();
+    historyRef.current.future.push(JSON.parse(JSON.stringify(activeMap)));
+    setData(d => ({ ...d, maps: { ...d.maps, [d.activeMapId]: prev } }));
+    setHistoryVersion(v => v + 1);
+  }, [activeMap]);
+  
+  const redo = useCallback(() => {
+    if (historyRef.current.future.length === 0) return;
+    const next = historyRef.current.future.pop();
+    historyRef.current.past.push(JSON.parse(JSON.stringify(activeMap)));
+    setData(d => ({ ...d, maps: { ...d.maps, [d.activeMapId]: next } }));
+    setHistoryVersion(v => v + 1);
+  }, [activeMap]);
+  
+  useEffect(() => {
+    historyRef.current = { past: [], future: [] };
+    setHistoryVersion(v => v + 1);
+  }, [data.activeMapId]);
+  
+  const selected = useMemo(() => {
+    if (selectedIds.size === 1) {
+      const id = [...selectedIds][0];
+      return nodes.find(n => n.id === id) || null;
+    }
+    return null;
+  }, [selectedIds, nodes]);
+  
+  const screenToCanvas = useCallback((sx, sy) => {
+    const rect = canvasRef.current.getBoundingClientRect();
+    return {
+      x: (sx - rect.left - viewport.x) / viewport.zoom,
+      y: (sy - rect.top - viewport.y) / viewport.zoom,
+    };
+  }, [viewport]);
+  
+  const addNode = useCallback((pos) => {
+    const center = pos || screenToCanvas(canvasRef.current.clientWidth / 2, canvasRef.current.clientHeight / 2);
+    const newNode = {
+      id: uid(), title: 'Nový uzel', content: '', status: 'idea',
+      x: center.x - 90, y: center.y - 30,
+      tags: [], groupId: null, image: null,
+    };
+    updateActiveMap(m => ({ ...m, nodes: [...m.nodes, newNode] }));
+    setSelectedIds(new Set([newNode.id]));
+    setEditorTab('edit');
+    return newNode.id;
+  }, [screenToCanvas, updateActiveMap]);
+  
+  const deleteNodes = useCallback((ids) => {
+    const idSet = new Set(ids);
+    updateActiveMap(m => ({
+      ...m,
+      nodes: m.nodes.filter(n => !idSet.has(n.id)),
+      edges: m.edges.filter(e => !idSet.has(e.from) && !idSet.has(e.to)),
+    }));
+    setSelectedIds(new Set());
+  }, [updateActiveMap]);
+  
+  const updateNode = useCallback((id, patch, recordHistory = true) => {
+    updateActiveMap(m => ({ ...m, nodes: m.nodes.map(n => n.id === id ? { ...n, ...patch } : n) }), recordHistory);
+  }, [updateActiveMap]);
+  
+  const deleteEdge = useCallback((edgeId) => {
+    updateActiveMap(m => ({ ...m, edges: m.edges.filter(e => e.id !== edgeId) }));
+  }, [updateActiveMap]);
+  
+  const addGroup = useCallback((name, color) => {
+    const newGroup = { id: uid(), name, color };
+    updateActiveMap(m => ({ ...m, groups: [...m.groups, newGroup] }));
+    return newGroup.id;
+  }, [updateActiveMap]);
+  
+  const updateGroup = useCallback((id, patch) => {
+    updateActiveMap(m => ({ ...m, groups: m.groups.map(g => g.id === id ? { ...g, ...patch } : g) }));
+  }, [updateActiveMap]);
+  
+  const deleteGroup = useCallback((id) => {
+    updateActiveMap(m => ({
+      ...m,
+      groups: m.groups.filter(g => g.id !== id),
+      nodes: m.nodes.map(n => n.groupId === id ? { ...n, groupId: null } : n),
+    }));
+  }, [updateActiveMap]);
+  
+  const addMap = () => {
+    const id = uid();
+    const newMap = { id, name: `Mapa ${data.mapOrder.length + 1}`, nodes: [], edges: [], groups: [], viewport: { x: 0, y: 0, zoom: 1 } };
+    setData(d => ({
+      ...d,
+      maps: { ...d.maps, [id]: newMap },
+      mapOrder: [...d.mapOrder, id],
+      activeMapId: id,
+    }));
+    setSelectedIds(new Set());
+  };
+  
+  const switchMap = (id) => {
+    setData(d => ({ ...d, activeMapId: id }));
+    setSelectedIds(new Set());
+  };
+  
+  const closeMap = (id) => {
+    if (data.mapOrder.length <= 1) { alert('Nelze smazat poslední mapu.'); return; }
+    if (!confirm(`Smazat mapu "${data.maps[id].name}"?`)) return;
+    setData(d => {
+      const newMaps = { ...d.maps };
+      delete newMaps[id];
+      const newOrder = d.mapOrder.filter(x => x !== id);
+      return {
+        ...d, maps: newMaps, mapOrder: newOrder,
+        activeMapId: d.activeMapId === id ? newOrder[0] : d.activeMapId,
+      };
+    });
+  };
+  
+  const renameMap = (id) => {
+    const name = prompt('Název mapy:', data.maps[id].name);
+    if (name && name.trim()) {
+      setData(d => ({ ...d, maps: { ...d.maps, [id]: { ...d.maps[id], name: name.trim() } } }));
+    }
+  };
+  
+  const onNodeMouseDown = (e, node) => {
+    if (e.target.classList.contains('node-anchor')) return;
+    e.stopPropagation();
+    
+    const isMulti = e.shiftKey || e.metaKey || e.ctrlKey;
+    let newSelected;
+    
+    if (isMulti) {
+      newSelected = new Set(selectedIds);
+      if (newSelected.has(node.id)) newSelected.delete(node.id);
+      else newSelected.add(node.id);
+    } else if (selectedIds.has(node.id) && selectedIds.size > 1) {
+      newSelected = selectedIds;
+    } else {
+      newSelected = new Set([node.id]);
+    }
+    
+    setSelectedIds(newSelected);
+    
+    pushHistory();
+    const dragIds = [...newSelected];
+    const origPositions = {};
+    dragIds.forEach(id => {
+      const n = nodes.find(x => x.id === id);
+      if (n) origPositions[id] = { x: n.x, y: n.y };
+    });
+    
+    dragStateRef.current = {
+      ids: dragIds,
+      startX: e.clientX, startY: e.clientY,
+      origPositions, moved: false,
+    };
+    setDraggingNode(node.id);
+  };
+  
+  const onAnchorMouseDown = (e, node) => {
+    e.stopPropagation();
+    e.preventDefault();
+    setConnectingFrom(node.id);
+  };
+  
+  useEffect(() => {
+    const onMove = (e) => {
+      const ds = dragStateRef.current;
+      if (ds) {
+        const dx = (e.clientX - ds.startX) / viewport.zoom;
+        const dy = (e.clientY - ds.startY) / viewport.zoom;
+        if (Math.abs(dx) > 2 || Math.abs(dy) > 2) ds.moved = true;
+        updateActiveMap(m => ({
+          ...m,
+          nodes: m.nodes.map(n => {
+            if (ds.origPositions[n.id]) {
+              return { ...n, x: ds.origPositions[n.id].x + dx, y: ds.origPositions[n.id].y + dy };
+            }
+            return n;
+          }),
+        }), false);
+      }
+      const ps = panStateRef.current;
+      if (ps) {
+        updateActiveMap(m => ({ ...m, viewport: { ...m.viewport, x: ps.origX + (e.clientX - ps.startX), y: ps.origY + (e.clientY - ps.startY) } }), false);
+      }
+      if (connectingFrom) {
+        setMousePos(screenToCanvas(e.clientX, e.clientY));
+      }
+      if (selectionRef.current) {
+        const start = selectionRef.current;
+        const end = screenToCanvas(e.clientX, e.clientY);
+        setSelectionBox({
+          x: Math.min(start.x, end.x), y: Math.min(start.y, end.y),
+          w: Math.abs(end.x - start.x), h: Math.abs(end.y - start.y),
+        });
+      }
+    };
+    const onUp = (e) => {
+      if (dragStateRef.current) {
+        dragStateRef.current = null;
+        setDraggingNode(null);
+      }
+      if (panStateRef.current) {
+        panStateRef.current = null;
+        setPanning(false);
+      }
+      if (selectionRef.current) {
+        if (selectionBox) {
+          const box = selectionBox;
+          const ids = nodes.filter(n => {
+            const el = nodeRefs.current[n.id];
+            const w = el?.offsetWidth || 200;
+            const h = el?.offsetHeight || 60;
+            return n.x < box.x + box.w && n.x + w > box.x && n.y < box.y + box.h && n.y + h > box.y;
+          }).map(n => n.id);
+          if (ids.length > 0) setSelectedIds(new Set(ids));
+        }
+        selectionRef.current = null;
+        setSelectionBox(null);
+      }
+      if (connectingFrom) {
+        const targetEl = document.elementFromPoint(e.clientX, e.clientY);
+        const nodeEl = targetEl?.closest('.node');
+        if (nodeEl) {
+          const targetId = nodeEl.dataset.nodeId;
+          if (targetId && targetId !== connectingFrom) {
+            const exists = edges.some(ed =>
+              (ed.from === connectingFrom && ed.to === targetId) ||
+              (ed.from === targetId && ed.to === connectingFrom)
+            );
+            if (!exists) {
+              updateActiveMap(m => ({ ...m, edges: [...m.edges, { id: uid(), from: connectingFrom, to: targetId }] }));
+            }
+          }
+        }
+        setConnectingFrom(null);
+      }
+    };
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
+    return () => {
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+    };
+  }, [viewport.zoom, connectingFrom, edges, screenToCanvas, nodes, selectionBox, updateActiveMap]);
+  
+  const onCanvasMouseDown = (e) => {
+    if (e.target !== canvasRef.current && !e.target.classList.contains('canvas-bg')) return;
+    if (e.shiftKey) {
+      selectionRef.current = screenToCanvas(e.clientX, e.clientY);
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set());
+      panStateRef.current = {
+        startX: e.clientX, startY: e.clientY,
+        origX: viewport.x, origY: viewport.y,
+      };
+      setPanning(true);
+    }
+  };
+  
+  const onCanvasDoubleClick = (e) => {
+    if (e.target !== canvasRef.current && !e.target.classList.contains('canvas-bg')) return;
+    const pos = screenToCanvas(e.clientX, e.clientY);
+    addNode(pos);
+  };
+  
+  const onWheel = (e) => {
+    e.preventDefault();
+    const rect = canvasRef.current.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    const delta = -e.deltaY * 0.001;
+    const newZoom = Math.max(0.2, Math.min(2.5, viewport.zoom * (1 + delta)));
+    const ratio = newZoom / viewport.zoom;
+    updateActiveMap(m => ({
+      ...m,
+      viewport: {
+        x: mx - (mx - viewport.x) * ratio,
+        y: my - (my - viewport.y) * ratio,
+        zoom: newZoom,
+      },
+    }), false);
+  };
+  
+  useEffect(() => {
+    const wrap = canvasRef.current;
+    if (!wrap) return;
+    const onDragOver = (e) => { e.preventDefault(); };
+    const onDrop = (e) => {
+      e.preventDefault();
+      const file = e.dataTransfer.files[0];
+      if (!file || !file.type.startsWith('image/')) return;
+      const pos = screenToCanvas(e.clientX, e.clientY);
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const dataUrl = ev.target.result;
+        if (dataUrl.length > 800000) {
+          alert('Obrázek je moc velký (max ~600 KB). Použij menší.');
+          return;
+        }
+        const newNode = {
+          id: uid(),
+          title: file.name.replace(/\.[^.]+$/, '').slice(0, 40),
+          content: '',
+          status: 'idea',
+          x: pos.x - 100, y: pos.y - 50,
+          tags: [], groupId: null,
+          image: dataUrl,
+        };
+        updateActiveMap(m => ({ ...m, nodes: [...m.nodes, newNode] }));
+        setSelectedIds(new Set([newNode.id]));
+      };
+      reader.readAsDataURL(file);
+    };
+    wrap.addEventListener('dragover', onDragOver);
+    wrap.addEventListener('drop', onDrop);
+    return () => {
+      wrap.removeEventListener('dragover', onDragOver);
+      wrap.removeEventListener('drop', onDrop);
+    };
+  }, [screenToCanvas, updateActiveMap]);
+  
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey) {
+        undo(); e.preventDefault();
+      } else if ((e.metaKey || e.ctrlKey) && (e.key === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
+        redo(); e.preventDefault();
+      } else if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (selectedIds.size > 0) { deleteNodes([...selectedIds]); e.preventDefault(); }
+      } else if (e.key === 'n' || e.key === 'N') {
+        addNode();
+      } else if (e.key === 'Escape') {
+        setSelectedIds(new Set());
+        setConnectingFrom(null);
+      } else if (e.key === '0') {
+        updateActiveMap(m => ({ ...m, viewport: { x: 0, y: 0, zoom: 1 } }), false);
+      } else if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
+        setSelectedIds(new Set(nodes.map(n => n.id)));
+        e.preventDefault();
+      } else if ((e.metaKey || e.ctrlKey) && e.key === 'p') {
+        e.preventDefault();
+        printMap();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selectedIds, deleteNodes, addNode, undo, redo, nodes, updateActiveMap]);
+  
+  const autoLayout = () => {
+    if (nodes.length === 0) return;
+    pushHistory();
+    const w = canvasRef.current.clientWidth;
+    const h = canvasRef.current.clientHeight;
+    const simNodes = nodes.map(n => ({ id: n.id, x: n.x, y: n.y, groupId: n.groupId }));
+    const simLinks = edges.map(e => ({ source: e.from, target: e.to }));
+    
+    const sim = d3.forceSimulation(simNodes)
+      .force('link', d3.forceLink(simLinks).id(d => d.id).distance(180).strength(0.5))
+      .force('charge', d3.forceManyBody().strength(-800))
+      .force('center', d3.forceCenter(w / 2 / viewport.zoom, h / 2 / viewport.zoom))
+      .force('collide', d3.forceCollide(120))
+      .stop();
+    
+    if (groups.length > 0) {
+      sim.force('group', d3.forceX().x(d => {
+        if (!d.groupId) return w / 2 / viewport.zoom;
+        const idx = groups.findIndex(g => g.id === d.groupId);
+        return (w / (groups.length + 1)) * (idx + 1) / viewport.zoom;
+      }).strength(0.15));
+    }
+    
+    for (let i = 0; i < 300; i++) sim.tick();
+    
+    updateActiveMap(m => ({
+      ...m,
+      nodes: m.nodes.map(n => {
+        const sn = simNodes.find(s => s.id === n.id);
+        if (!sn) return n;
+        return { ...n, x: sn.x - 90, y: sn.y - 30 };
+      }),
+      viewport: { ...m.viewport, x: 0, y: 0 },
+    }), false);
+  };
+  
+  const clearAll = () => {
+    if (confirm('Opravdu smazat vše na této mapě?')) {
+      pushHistory();
+      updateActiveMap(m => ({ ...m, nodes: [], edges: [], groups: [] }), false);
+      setSelectedIds(new Set());
+    }
+  };
+  
+  const exportData = () => {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `myslenkomapa-${new Date().toISOString().slice(0,10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+  
+  const importData = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'application/json';
+    input.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const imported = JSON.parse(text);
+        if (imported.maps && imported.activeMapId) {
+          if (!confirm('Nahradit všechna data?')) return;
+          setData(imported);
+        } else if (imported.nodes && imported.edges) {
+          if (!confirm('Importovat jako novou mapu?')) return;
+          const id = uid();
+          const newMap = {
+            id, name: 'Importovaná',
+            nodes: imported.nodes.map(n => ({ ...n, tags: n.tags || [], groupId: n.groupId || null, image: n.image || null })),
+            edges: imported.edges, groups: [],
+            viewport: { x: 0, y: 0, zoom: 1 },
+          };
+          setData(d => ({
+            ...d,
+            maps: { ...d.maps, [id]: newMap },
+            mapOrder: [...d.mapOrder, id],
+            activeMapId: id,
+          }));
+        } else {
+          alert('Neznámý formát souboru');
+        }
+      } catch (err) {
+        alert('Chyba při načítání: ' + err.message);
+      }
+    };
+    input.click();
+  };
+  
+  const printMap = () => {
+    if (nodes.length > 0) {
+      const minX = Math.min(...nodes.map(n => n.x)) - 40;
+      const minY = Math.min(...nodes.map(n => n.y)) - 40;
+      const maxX = Math.max(...nodes.map(n => n.x + 240)) + 40;
+      const maxY = Math.max(...nodes.map(n => n.y + 120)) + 40;
+      const w = canvasRef.current.clientWidth;
+      const h = canvasRef.current.clientHeight;
+      const zoom = Math.min(w / (maxX - minX), h / (maxY - minY), 1);
+      updateActiveMap(m => ({
+        ...m,
+        viewport: { x: -minX * zoom, y: -minY * zoom, zoom },
+      }), false);
+    }
+    setTimeout(() => window.print(), 200);
+  };
+  
+  const focusOnNode = (nodeId) => {
+    const n = nodes.find(x => x.id === nodeId);
+    if (!n) return;
+    const el = nodeRefs.current[nodeId];
+    const w = el?.offsetWidth || 200;
+    const h = el?.offsetHeight || 60;
+    const cw = canvasRef.current.clientWidth;
+    const ch = canvasRef.current.clientHeight;
+    const zoom = 1;
+    updateActiveMap(m => ({
+      ...m,
+      viewport: {
+        x: cw / 2 - (n.x + w / 2) * zoom,
+        y: ch / 2 - (n.y + h / 2) * zoom,
+        zoom,
+      },
+    }), false);
+    setSelectedIds(new Set([nodeId]));
+    setSearchFocusId(nodeId);
+    setTimeout(() => setSearchFocusId(null), 1500);
+  };
+  
+  const visibleNodes = useMemo(() => {
+    const q = search.toLowerCase();
+    return nodes.filter(n => {
+      if (filter !== 'all' && n.status !== filter) return false;
+      if (groupFilter && n.groupId !== groupFilter) return false;
+      if (q) {
+        const hay = (n.title + ' ' + n.content + ' ' + (n.tags || []).join(' ')).toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [nodes, filter, search, groupFilter]);
+  
+  const visibleIds = useMemo(() => new Set(visibleNodes.map(n => n.id)), [visibleNodes]);
+  
+  const searchMatches = useMemo(() => {
+    if (!search) return [];
+    return visibleNodes.slice(0, 5);
+  }, [search, visibleNodes]);
+  
+  const edgeLines = useMemo(() => {
+    return edges.map(e => {
+      const from = nodes.find(n => n.id === e.from);
+      const to = nodes.find(n => n.id === e.to);
+      if (!from || !to) return null;
+      if (!visibleIds.has(from.id) || !visibleIds.has(to.id)) return null;
+      const fromEl = nodeRefs.current[from.id];
+      const toEl = nodeRefs.current[to.id];
+      const fw = fromEl?.offsetWidth || 200;
+      const fh = fromEl?.offsetHeight || 60;
+      const tw = toEl?.offsetWidth || 200;
+      const th = toEl?.offsetHeight || 60;
+      return {
+        id: e.id,
+        x1: from.x + fw / 2, y1: from.y + fh / 2,
+        x2: to.x + tw / 2, y2: to.y + th / 2,
+      };
+    }).filter(Boolean);
+  }, [edges, nodes, visibleIds]);
+  
+  const groupRegions = useMemo(() => {
+    return groups.map(g => {
+      const groupNodes = nodes.filter(n => n.groupId === g.id);
+      if (groupNodes.length === 0) return null;
+      const padding = 24;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      groupNodes.forEach(n => {
+        const el = nodeRefs.current[n.id];
+        const w = el?.offsetWidth || 200;
+        const h = el?.offsetHeight || 80;
+        if (n.x < minX) minX = n.x;
+        if (n.y < minY) minY = n.y;
+        if (n.x + w > maxX) maxX = n.x + w;
+        if (n.y + h > maxY) maxY = n.y + h;
+      });
+      return {
+        ...g,
+        x: minX - padding,
+        y: minY - padding - 18,
+        w: maxX - minX + padding * 2,
+        h: maxY - minY + padding * 2 + 18,
+        count: groupNodes.length,
+      };
+    }).filter(Boolean);
+  }, [groups, nodes]);
+  
+  const counts = useMemo(() => {
+    const c = { idea: 0, question: 0, answer: 0, done: 0 };
+    nodes.forEach(n => { c[n.status] = (c[n.status] || 0) + 1; });
+    return c;
+  }, [nodes]);
+  
+  const allTags = useMemo(() => {
+    const t = new Set();
+    nodes.forEach(n => (n.tags || []).forEach(tag => t.add(tag)));
+    return [...t].sort();
+  }, [nodes]);
+  
+  const minimapBounds = useMemo(() => {
+    if (nodes.length === 0) return null;
+    const padding = 100;
+    let minX = Math.min(...nodes.map(n => n.x)) - padding;
+    let minY = Math.min(...nodes.map(n => n.y)) - padding;
+    let maxX = Math.max(...nodes.map(n => n.x + 200)) + padding;
+    let maxY = Math.max(...nodes.map(n => n.y + 100)) + padding;
+    return { minX, minY, w: maxX - minX, h: maxY - minY };
+  }, [nodes]);
+  
+  const onMinimapClick = (e) => {
+    if (!minimapBounds) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    const px = (e.clientX - rect.left) / rect.width;
+    const py = (e.clientY - rect.top) / rect.height;
+    const targetCanvasX = minimapBounds.minX + minimapBounds.w * px;
+    const targetCanvasY = minimapBounds.minY + minimapBounds.h * py;
+    const cw = canvasRef.current.clientWidth;
+    const ch = canvasRef.current.clientHeight;
+    updateActiveMap(m => ({
+      ...m,
+      viewport: {
+        x: cw / 2 - targetCanvasX * m.viewport.zoom,
+        y: ch / 2 - targetCanvasY * m.viewport.zoom,
+        zoom: m.viewport.zoom,
+      },
+    }), false);
+  };
+  
+  const addTagToNode = (nodeId, tag) => {
+    const t = tag.trim().toLowerCase().replace(/^#/, '');
+    if (!t) return;
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    const tags = node.tags || [];
+    if (tags.includes(t)) return;
+    updateNode(nodeId, { tags: [...tags, t] });
+  };
+  
+  const removeTagFromNode = (nodeId, tag) => {
+    const node = nodes.find(n => n.id === nodeId);
+    if (!node) return;
+    updateNode(nodeId, { tags: (node.tags || []).filter(x => x !== tag) });
+  };
+  
+  return (
+    <div className="app">
+      <div className="tabs-bar">
+        {data.mapOrder.map(id => (
+          <div
+            key={id}
+            className={`tab-item ${id === data.activeMapId ? 'active' : ''}`}
+            onClick={() => switchMap(id)}
+            onDoubleClick={() => renameMap(id)}
+            title="Dvojklik pro přejmenování"
+          >
+            <span className="tab-name">{data.maps[id].name}</span>
+            <span className="tab-close" onClick={(e) => { e.stopPropagation(); closeMap(id); }}>✕</span>
+          </div>
+        ))}
+        <div className="tab-add" onClick={addMap}>+ Nová mapa</div>
+      </div>
+      
+      <div className="toolbar">
+        <h1>🧠 Státnice</h1>
+        <button className="primary" onClick={() => addNode()}>+ Uzel</button>
+        <button onClick={autoLayout} title="Auto-layout">⇄</button>
+        <button onClick={() => updateActiveMap(m => ({ ...m, viewport: { x: 0, y: 0, zoom: 1 } }), false)} title="Centrovat">⊙</button>
+        <button onClick={undo} disabled={historyRef.current.past.length === 0} title="Zpět (Ctrl+Z)">↶</button>
+        <button onClick={redo} disabled={historyRef.current.future.length === 0} title="Vpřed (Ctrl+Shift+Z)">↷</button>
+        
+        <div className="filter-bar">
+          <span className={`filter-chip ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>Vše ({nodes.length})</span>
+          <span className={`filter-chip ${filter === 'question' ? 'active' : ''}`} onClick={() => setFilter('question')} style={filter === 'question' ? { background: '#EF9F27', color: '#412402', borderColor: '#EF9F27' } : {}}>? {counts.question}</span>
+          <span className={`filter-chip ${filter === 'answer' ? 'active' : ''}`} onClick={() => setFilter('answer')} style={filter === 'answer' ? { background: '#378ADD', color: '#fff', borderColor: '#378ADD' } : {}}>✓ {counts.answer}</span>
+          <span className={`filter-chip ${filter === 'done' ? 'active' : ''}`} onClick={() => setFilter('done')} style={filter === 'done' ? { background: '#1D9E75', color: '#fff', borderColor: '#1D9E75' } : {}}>★ {counts.done}</span>
+        </div>
+        
+        <div style={{ position: 'relative' }}>
+          <input className="search-input" placeholder="Hledat…" value={search} onChange={e => setSearch(e.target.value)} />
+          {search && searchMatches.length > 0 && (
+            <div style={{ position: 'absolute', top: '100%', left: 0, marginTop: 4, background: 'var(--bg-card)', border: '1px solid var(--border-light)', borderRadius: 6, padding: 4, minWidth: 220, maxWidth: 280, zIndex: 100, boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
+              {searchMatches.map(n => (
+                <div key={n.id}
+                  onClick={() => { focusOnNode(n.id); setSearch(''); }}
+                  style={{ padding: '5px 8px', fontSize: 12, cursor: 'pointer', borderRadius: 4, color: 'var(--text)' }}
+                  onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-soft)'}
+                  onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                >
+                  {n.title}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        
+        <button onClick={() => setShowGroupModal(true)} title="Spravovat okruhy">📁 Okruhy ({groups.length})</button>
+        <button onClick={printMap} title="Tisk / PDF (Ctrl+P)">🖨</button>
+        <button onClick={exportData} title="Export">↓</button>
+        <button onClick={importData} title="Import">↑</button>
+        <button onClick={() => setData(d => ({ ...d, theme: d.theme === 'dark' ? 'light' : 'dark' }))} title="Téma">{isDark ? '☀' : '🌙'}</button>
+        <button className="danger" onClick={clearAll} title="Smazat vše">🗑</button>
+        
+        <span className="stats">
+          <span className={`save-indicator ${saving ? 'saving' : ''}`}><span className="dot"></span>{saving ? 'Ukládám…' : 'Uloženo'}</span>
+          <span>{nodes.length} · {edges.length}</span>
+        </span>
+      </div>
+      
+      <div className="main">
+        <div
+          className={`canvas-wrap ${panning ? 'panning' : ''}`}
+          ref={canvasRef}
+          onMouseDown={onCanvasMouseDown}
+          onDoubleClick={onCanvasDoubleClick}
+          onWheel={onWheel}
+        >
+          <div className="canvas-bg" style={{ position: 'absolute', inset: 0 }} />
+          
+          {nodes.length === 0 && (
+            <div className="empty-state">
+              <h2>Začni přidáním prvního uzlu</h2>
+              <p>Stiskni <strong>N</strong>, klikni "+ Uzel", nebo <strong>dvojklik</strong> kdekoliv.<br/>
+              Můžeš taky <strong>přetáhnout obrázek</strong> na plátno.</p>
+            </div>
+          )}
+          
+          <svg className="edges" style={{ width: '100%', height: '100%' }}>
+            <defs>
+              <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                <path d="M0,0 L10,5 L0,10 z" fill={isDark ? '#b4b2a9' : '#888780'} />
+              </marker>
+            </defs>
+            <g transform={`translate(${viewport.x},${viewport.y}) scale(${viewport.zoom})`}>
+              {edgeLines.map(e => (
+                <g key={e.id} className="edge-line" onClick={() => deleteEdge(e.id)}>
+                  <line x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} stroke="transparent" strokeWidth={12} />
+                  <line x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} stroke={isDark ? '#b4b2a9' : '#888780'} strokeWidth={1.5} markerEnd="url(#arrow)" />
+                </g>
+              ))}
+              {connectingFrom && (() => {
+                const from = nodes.find(n => n.id === connectingFrom);
+                if (!from) return null;
+                const fromEl = nodeRefs.current[from.id];
+                const fw = fromEl?.offsetWidth || 200;
+                const fh = fromEl?.offsetHeight || 60;
+                return (
+                  <line x1={from.x + fw / 2} y1={from.y + fh / 2} x2={mousePos.x} y2={mousePos.y} stroke="#534ab7" strokeWidth={2} strokeDasharray="5,5" />
+                );
+              })()}
+            </g>
+          </svg>
+          
+          <div className="nodes-layer" style={{ transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})` }}>
+            {groupRegions.map(g => (
+              <React.Fragment key={g.id}>
+                <div
+                  className="group-region"
+                  style={{
+                    left: g.x, top: g.y, width: g.w, height: g.h,
+                    background: hexToRgba(g.color, 0.08),
+                    borderColor: hexToRgba(g.color, 0.4),
+                  }}
+                />
+                <div
+                  className="group-label"
+                  style={{ left: g.x + 8, top: g.y + 4, background: g.color }}
+                  onClick={() => setShowGroupModal(true)}
+                >
+                  {g.name} ({g.count})
+                </div>
+              </React.Fragment>
+            ))}
+            
+            {selectionBox && (
+              <div className="selection-box" style={{
+                left: selectionBox.x, top: selectionBox.y,
+                width: selectionBox.w, height: selectionBox.h,
+              }} />
+            )}
+            
+            {nodes.map(node => {
+              const visible = visibleIds.has(node.id);
+              const isConnecting = connectingFrom === node.id;
+              const isSelected = selectedIds.has(node.id);
+              const group = groups.find(g => g.id === node.groupId);
+              
+              return (
+                <div
+                  key={node.id}
+                  ref={el => { if (el) nodeRefs.current[node.id] = el; }}
+                  className={`node status-${node.status} ${isSelected && selectedIds.size === 1 ? 'selected' : ''} ${isSelected && selectedIds.size > 1 ? 'multi-selected' : ''} ${draggingNode === node.id ? 'dragging' : ''} ${isConnecting ? 'connecting-source' : ''} ${searchFocusId === node.id ? 'search-focus' : ''}`}
+                  data-node-id={node.id}
+                  style={{
+                    left: node.x, top: node.y,
+                    opacity: visible ? 1 : 0.15,
+                    pointerEvents: visible ? 'auto' : 'none',
+                    borderLeftWidth: group ? '5px' : undefined,
+                    borderLeftColor: group ? group.color : undefined,
+                  }}
+                  onMouseDown={(e) => onNodeMouseDown(e, node)}
+                  onDoubleClick={(e) => { e.stopPropagation(); setSelectedIds(new Set([node.id])); setEditorTab('edit'); }}
+                >
+                  {group && (
+                    <div className="group-badge" style={{ background: group.color }}>{group.name}</div>
+                  )}
+                  <div className="node-title">{node.title || 'Bez názvu'}</div>
+                  {node.image && <img className="node-image-thumb" src={node.image} alt="" />}
+                  {node.content && (
+                    <div className="node-preview">{node.content.replace(/[#*`>_\-!\[\]()]/g, '').slice(0, 100)}</div>
+                  )}
+                  {(node.tags || []).length > 0 && (
+                    <div className="node-tags">
+                      {node.tags.map(t => <span key={t} className="node-tag">#{t}</span>)}
+                    </div>
+                  )}
+                  <span className={`node-status`}>
+                    {STATUSES.find(s => s.id === node.status)?.label}
+                  </span>
+                  <div className="node-anchor" onMouseDown={(e) => onAnchorMouseDown(e, node)} title="Táhni pro propojení" />
+                </div>
+              );
+            })}
+          </div>
+          
+          {minimapBounds && nodes.length > 1 && (
+            <div className="minimap" onClick={onMinimapClick}>
+              <svg className="minimap-svg" viewBox={`${minimapBounds.minX} ${minimapBounds.minY} ${minimapBounds.w} ${minimapBounds.h}`} preserveAspectRatio="xMidYMid meet">
+                {nodes.map(n => {
+                  const statusColor = {
+                    idea: isDark ? '#b4b2a9' : '#888780',
+                    question: '#EF9F27', answer: '#378ADD', done: '#1D9E75',
+                  }[n.status];
+                  return <rect key={n.id} x={n.x} y={n.y} width={200} height={60} rx={6} fill={statusColor} opacity={visibleIds.has(n.id) ? 0.7 : 0.15} />;
+                })}
+                {(() => {
+                  const cw = canvasRef.current?.clientWidth || 800;
+                  const ch = canvasRef.current?.clientHeight || 600;
+                  return (
+                    <rect className="minimap-viewport"
+                      x={-viewport.x / viewport.zoom} y={-viewport.y / viewport.zoom}
+                      width={cw / viewport.zoom} height={ch / viewport.zoom} />
+                  );
+                })()}
+              </svg>
+            </div>
+          )}
+          
+          <div className="help">
+            <div><kbd>N</kbd> uzel · <kbd>Dvojklik</kbd> uzel zde</div>
+            <div><kbd>Shift+drag</kbd> výběr rámcem · <kbd>Shift+klik</kbd> multi · <kbd>Ctrl+A</kbd> vše</div>
+            <div><kbd>Ctrl+Z/Y</kbd> zpět/vpřed · <kbd>Del</kbd> smazat · <kbd>Ctrl+P</kbd> tisk</div>
+            <div>Drop obrázek na plátno · Kolečko = zoom · Táhni pozadí = posun</div>
+          </div>
+          
+          <div className="zoom-controls">
+            <button onClick={() => updateActiveMap(m => ({ ...m, viewport: { ...m.viewport, zoom: Math.min(2.5, m.viewport.zoom * 1.2) } }), false)}>+</button>
+            <div className="zoom-level">{Math.round(viewport.zoom * 100)}%</div>
+            <button onClick={() => updateActiveMap(m => ({ ...m, viewport: { ...m.viewport, zoom: Math.max(0.2, m.viewport.zoom / 1.2) } }), false)}>−</button>
+          </div>
+        </div>
+        
+        {selected ? (
+          <div className="sidebar">
+            <div className="sidebar-header">
+              <input
+                className="sidebar-title-input"
+                value={selected.title}
+                onChange={e => updateNode(selected.id, { title: e.target.value }, false)}
+                placeholder="Název uzlu"
+              />
+              <button className="icon" onClick={() => setSelectedIds(new Set())} title="Zavřít">✕</button>
+            </div>
+            <div className="sidebar-body">
+              <div className="sidebar-section">
+                <div className="sidebar-label">Status</div>
+                <div className="status-picker">
+                  {STATUSES.map(s => (
+                    <button key={s.id}
+                      className={`status-btn ${selected.status === s.id ? `active ${s.id}` : ''}`}
+                      onClick={() => updateNode(selected.id, { status: s.id })}>
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="sidebar-section">
+                <div className="sidebar-label">Okruh</div>
+                <select
+                  value={selected.groupId || ''}
+                  onChange={e => updateNode(selected.id, { groupId: e.target.value || null })}
+                  style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-card)', color: 'var(--text)', fontFamily: 'inherit' }}
+                >
+                  <option value="">— žádný —</option>
+                  {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </div>
+              
+              <div className="sidebar-section">
+                <div className="sidebar-label">Tagy</div>
+                <div className="tag-input-row">
+                  {(selected.tags || []).map(t => (
+                    <span key={t} className="tag-pill">
+                      #{t}
+                      <span className="x" onClick={() => removeTagFromNode(selected.id, t)}>✕</span>
+                    </span>
+                  ))}
+                  <input
+                    className="tag-input"
+                    placeholder="přidat… (Enter)"
+                    value={tagInput}
+                    onChange={e => setTagInput(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && tagInput.trim()) {
+                        addTagToNode(selected.id, tagInput);
+                        setTagInput('');
+                      } else if (e.key === 'Backspace' && !tagInput && (selected.tags || []).length > 0) {
+                        const tags = selected.tags;
+                        removeTagFromNode(selected.id, tags[tags.length - 1]);
+                      }
+                    }}
+                  />
+                </div>
+                {allTags.length > 0 && (
+                  <div style={{ marginTop: 6, fontSize: 10, color: 'var(--text-faint)', lineHeight: 1.8 }}>
+                    Existující: {allTags.filter(t => !(selected.tags || []).includes(t)).slice(0, 10).map(t => (
+                      <span key={t} style={{ cursor: 'pointer', marginRight: 6, color: 'var(--text-muted)' }} onClick={() => addTagToNode(selected.id, t)}>#{t}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              
+              {selected.image && (
+                <div className="sidebar-section">
+                  <div className="sidebar-label">Obrázek</div>
+                  <img src={selected.image} style={{ maxWidth: '100%', borderRadius: 6 }} alt="" />
+                  <button onClick={() => updateNode(selected.id, { image: null })} style={{ marginTop: 6, fontSize: 11 }}>Odebrat obrázek</button>
+                </div>
+              )}
+              
+              <div className="sidebar-section">
+                <div className="sidebar-label">Poznámka (markdown)</div>
+                <div className="editor-tabs">
+                  <span className={`ed-tab ${editorTab === 'edit' ? 'active' : ''}`} onClick={() => setEditorTab('edit')}>Editovat</span>
+                  <span className={`ed-tab ${editorTab === 'preview' ? 'active' : ''}`} onClick={() => setEditorTab('preview')}>Náhled</span>
+                </div>
+                {editorTab === 'edit' ? (
+                  <textarea
+                    className="markdown-input"
+                    value={selected.content}
+                    onChange={e => updateNode(selected.id, { content: e.target.value }, false)}
+                    placeholder="# Nadpis&#10;**tučné** *kurzíva* `kód`&#10;&#10;- seznam&#10;&#10;> citace"
+                  />
+                ) : (
+                  <div className="markdown-preview"
+                    dangerouslySetInnerHTML={{ __html: marked.parse(selected.content || '_Žádná poznámka_') }} />
+                )}
+              </div>
+              
+              <div className="sidebar-section">
+                <div className="sidebar-label">Propojeno s</div>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.8 }}>
+                  {edges.filter(e => e.from === selected.id || e.to === selected.id).map(e => {
+                    const otherId = e.from === selected.id ? e.to : e.from;
+                    const other = nodes.find(n => n.id === otherId);
+                    if (!other) return null;
+                    return (
+                      <div key={e.id} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ flex: 1, cursor: 'pointer', color: '#378ADD' }} onClick={() => focusOnNode(otherId)}>
+                          {e.from === selected.id ? '→' : '←'} {other.title}
+                        </span>
+                        <button className="icon danger" onClick={() => deleteEdge(e.id)} style={{ fontSize: 10, padding: '2px 6px' }}>✕</button>
+                      </div>
+                    );
+                  })}
+                  {edges.filter(e => e.from === selected.id || e.to === selected.id).length === 0 && (
+                    <em style={{ color: 'var(--text-faint)' }}>žádné spojení</em>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="sidebar-footer">
+              <button className="danger" onClick={() => deleteNodes([selected.id])} style={{ flex: 1 }}>Smazat uzel</button>
+            </div>
+          </div>
+        ) : selectedIds.size > 1 ? (
+          <div className="sidebar">
+            <div className="sidebar-header">
+              <span style={{ flex: 1, fontSize: 14, fontWeight: 500 }}>{selectedIds.size} uzlů vybráno</span>
+              <button className="icon" onClick={() => setSelectedIds(new Set())}>✕</button>
+            </div>
+            <div className="sidebar-body">
+              <div className="sidebar-section">
+                <div className="sidebar-label">Hromadná změna statusu</div>
+                <div className="status-picker">
+                  {STATUSES.map(s => (
+                    <button key={s.id} className="status-btn" onClick={() => {
+                      pushHistory();
+                      updateActiveMap(m => ({ ...m, nodes: m.nodes.map(n => selectedIds.has(n.id) ? { ...n, status: s.id } : n) }), false);
+                    }}>
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="sidebar-section">
+                <div className="sidebar-label">Hromadné přiřazení okruhu</div>
+                <select
+                  onChange={e => {
+                    const groupId = e.target.value || null;
+                    pushHistory();
+                    updateActiveMap(m => ({ ...m, nodes: m.nodes.map(n => selectedIds.has(n.id) ? { ...n, groupId } : n) }), false);
+                    e.target.value = '';
+                  }}
+                  style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 12, background: 'var(--bg-card)', color: 'var(--text)' }}
+                  defaultValue=""
+                >
+                  <option value="">— vyber okruh —</option>
+                  <option value="">žádný okruh</option>
+                  {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
+                </select>
+              </div>
+              <div className="sidebar-section">
+                <button className="danger" onClick={() => deleteNodes([...selectedIds])} style={{ width: '100%' }}>
+                  Smazat {selectedIds.size} uzlů
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : nodes.length > 0 && (
+          <div className="sidebar">
+            <div className="sidebar-empty">
+              <div style={{ fontSize: 32, marginBottom: 12 }}>📝</div>
+              <strong style={{ display: 'block', marginBottom: 8, color: 'var(--text)' }}>Vyber uzel</strong>
+              Klikni na uzel pro editaci.<br/><br/>
+              <strong>Shift+klik</strong> = více uzlů<br/>
+              <strong>Shift+drag</strong> = výběr rámcem
+            </div>
+          </div>
+        )}
+      </div>
+      
+      {showGroupModal && (
+        <GroupModal
+          groups={groups}
+          onAdd={addGroup}
+          onUpdate={updateGroup}
+          onDelete={deleteGroup}
+          onClose={() => setShowGroupModal(false)}
+          groupFilter={groupFilter}
+          setGroupFilter={setGroupFilter}
+          nodeCounts={(() => {
+            const c = {};
+            nodes.forEach(n => { if (n.groupId) c[n.groupId] = (c[n.groupId] || 0) + 1; });
+            return c;
+          })()}
+        />
+      )}
+    </div>
+  );
+}
+
+function GroupModal({ groups, onAdd, onUpdate, onDelete, onClose, groupFilter, setGroupFilter, nodeCounts }) {
+  const [name, setName] = useState('');
+  const [color, setColor] = useState(GROUP_COLORS[0]);
+  const [editingId, setEditingId] = useState(null);
+  
+  const startEdit = (g) => {
+    setEditingId(g.id);
+    setName(g.name);
+    setColor(g.color);
+  };
+  
+  const submit = () => {
+    if (!name.trim()) return;
+    if (editingId) {
+      onUpdate(editingId, { name: name.trim(), color });
+    } else {
+      onAdd(name.trim(), color);
+    }
+    setName('');
+    setColor(GROUP_COLORS[0]);
+    setEditingId(null);
+  };
+  
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <h3>Okruhy ({groups.length})</h3>
+        
+        {groups.length > 0 && (
+          <div className="group-list" style={{ marginBottom: 16, maxHeight: 200, overflowY: 'auto' }}>
+            <div className="group-item" onClick={() => setGroupFilter(null)} style={{ background: groupFilter === null ? 'var(--bg-soft)' : undefined, cursor: 'pointer' }}>
+              <span className="group-color-dot" style={{ background: 'var(--text-faint)' }} />
+              <span className="group-name">Zobrazit všechny okruhy</span>
+            </div>
+            {groups.map(g => (
+              <div key={g.id} className="group-item" style={{ background: groupFilter === g.id ? 'var(--bg-soft)' : undefined }}>
+                <span className="group-color-dot" style={{ background: g.color }} />
+                <span className="group-name" onClick={() => setGroupFilter(groupFilter === g.id ? null : g.id)}>{g.name}</span>
+                <span className="group-count">{nodeCounts[g.id] || 0}</span>
+                <button className="icon" onClick={() => startEdit(g)} title="Upravit">✎</button>
+                <button className="icon danger" onClick={() => { if (confirm(`Smazat okruh "${g.name}"? Uzly v něm zůstanou bez okruhu.`)) onDelete(g.id); }}>✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+        
+        <label>{editingId ? 'Upravit okruh' : 'Nový okruh'}</label>
+        <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Např. IT Governance" onKeyDown={e => e.key === 'Enter' && submit()} />
+        
+        <label>Barva</label>
+        <div className="color-grid">
+          {GROUP_COLORS.map(c => (
+            <div key={c} className={`color-swatch ${color === c ? 'selected' : ''}`} style={{ background: c }} onClick={() => setColor(c)} />
+          ))}
+        </div>
+        
+        <div className="modal-actions">
+          {editingId && <button onClick={() => { setEditingId(null); setName(''); setColor(GROUP_COLORS[0]); }}>Zrušit editaci</button>}
+          <button onClick={onClose}>Zavřít</button>
+          <button className="primary" onClick={submit} disabled={!name.trim()}>
+            {editingId ? 'Uložit' : 'Přidat'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
