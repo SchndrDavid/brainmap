@@ -88,10 +88,16 @@
   @keyframes highlight { 0%, 100% { box-shadow: 0 0 0 3px rgba(83,74,183,0); } 30% { box-shadow: 0 0 0 8px rgba(83,74,183,0.4); } }
   
   .node.status-question { background: #FAEEDA; border-color: #EF9F27; color: #412402; }
+  .node.status-inprogress { background: #EDE9FF; border-color: #7B6FD8; color: #2D1F8A; }
+  .node.status-review { background: #FEF3C7; border-color: #D97706; color: #4A2C00; }
   .node.status-answer { background: #E6F1FB; border-color: #378ADD; color: #042C53; }
+  .node.status-important { background: #FFE4E1; border-color: #DC143C; color: #5C0011; }
   .node.status-done { background: #E1F5EE; border-color: #1D9E75; color: #04342C; }
   [data-theme="dark"] .node.status-question { background: #4a3408; border-color: #EF9F27; color: #FAEEDA; }
+  [data-theme="dark"] .node.status-inprogress { background: #231856; border-color: #7B6FD8; color: #EDE9FF; }
+  [data-theme="dark"] .node.status-review { background: #3D2800; border-color: #D97706; color: #FEF3C7; }
   [data-theme="dark"] .node.status-answer { background: #0C2540; border-color: #378ADD; color: #E6F1FB; }
+  [data-theme="dark"] .node.status-important { background: #3D0010; border-color: #DC143C; color: #FFE4E1; }
   [data-theme="dark"] .node.status-done { background: #0a3024; border-color: #1D9E75; color: #E1F5EE; }
   
   .node-title { font-size: 13px; font-weight: 500; line-height: 1.35; word-wrap: break-word; }
@@ -101,8 +107,11 @@
   [data-theme="dark"] .node-tag { background: rgba(255,255,255,0.12); }
   .node-status { display: inline-block; font-size: 10px; padding: 2px 6px; border-radius: 4px; margin-top: 6px; font-weight: 500; background: rgba(0,0,0,0.08); }
   [data-theme="dark"] .node-status { background: rgba(255,255,255,0.12); }
-  .node-preview { font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-  .node.status-question .node-preview, .node.status-answer .node-preview, .node.status-done .node-preview { color: inherit; opacity: 0.75; }
+  .node-preview { font-size: 11px; color: var(--text-muted); margin-top: 4px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; }
+  .node-preview.expanded { display: block; -webkit-line-clamp: unset; overflow: visible; white-space: pre-wrap; }
+  .node-expand-btn { font-size: 9px; color: var(--text-faint); cursor: pointer; margin-top: 3px; text-align: right; padding: 0 2px; user-select: none; }
+  .node-expand-btn:hover { color: var(--text-muted); }
+  .node.status-question .node-preview, .node.status-inprogress .node-preview, .node.status-review .node-preview, .node.status-answer .node-preview, .node.status-important .node-preview, .node.status-done .node-preview { color: inherit; opacity: 0.75; }
   
   .node-anchor { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--bg-card); border: 2px solid var(--accent); right: -7px; top: 50%; transform: translateY(-50%); cursor: crosshair; opacity: 0; transition: opacity 0.15s; }
   .node:hover .node-anchor, .node.selected .node-anchor { opacity: 1; }
@@ -117,11 +126,14 @@
   .sidebar-body { flex: 1; overflow-y: auto; padding: 14px 16px; }
   .sidebar-section { margin-bottom: 16px; }
   .sidebar-label { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-faint); margin-bottom: 6px; }
-  .status-picker { display: flex; gap: 5px; }
+  .status-picker { display: flex; gap: 5px; flex-wrap: wrap; }
   .status-btn { flex: 1; padding: 5px 6px; font-size: 11px; border-radius: 5px; border: 1.5px solid var(--border); background: var(--bg-card); cursor: pointer; font-family: inherit; transition: all 0.15s; color: var(--text); }
   .status-btn.active.idea { background: var(--bg-soft); border-color: #5F5E5A; }
   .status-btn.active.question { background: #FAEEDA; border-color: #EF9F27; color: #633806; }
+  .status-btn.active.inprogress { background: #EDE9FF; border-color: #7B6FD8; color: #2D1F8A; }
+  .status-btn.active.review { background: #FEF3C7; border-color: #D97706; color: #4A2C00; }
   .status-btn.active.answer { background: #E6F1FB; border-color: #378ADD; color: #0C447C; }
+  .status-btn.active.important { background: #FFE4E1; border-color: #DC143C; color: #5C0011; }
   .status-btn.active.done { background: #E1F5EE; border-color: #1D9E75; color: #04342C; }
   
   .editor-tabs { display: flex; gap: 4px; margin-bottom: 6px; }
@@ -187,7 +199,7 @@
   .modal label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; margin-top: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
   .modal input[type="text"] { width: 100%; padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: var(--bg-card); color: var(--text); font-family: inherit; }
   .modal-actions { display: flex; gap: 8px; margin-top: 16px; justify-content: flex-end; }
-  .color-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; }
+  .color-grid { display: grid; grid-template-columns: repeat(8, 1fr); gap: 5px; max-height: 140px; overflow-y: auto; }
   .color-swatch { width: 26px; height: 26px; border-radius: 5px; cursor: pointer; border: 2px solid transparent; }
   .color-swatch.selected { border-color: var(--text); }
   
@@ -212,14 +224,31 @@ const STORAGE_KEY = 'mindmap-statnice-v2';
 const STATUSES = [
   { id: 'idea', label: 'Nápad' },
   { id: 'question', label: 'Otázka' },
+  { id: 'inprogress', label: 'Probíhá' },
+  { id: 'review', label: 'Opakovat' },
   { id: 'answer', label: 'Odpověď' },
+  { id: 'important', label: 'Důležité' },
   { id: 'done', label: 'Hotovo' },
 ];
+
+const STATUS_META = {
+  idea:       { icon: '○', color: null },
+  question:   { icon: '?',  color: '#EF9F27', bg: '#FAEEDA', text: '#412402' },
+  inprogress: { icon: '⏳', color: '#7B6FD8', bg: '#EDE9FF', text: '#2D1F8A' },
+  review:     { icon: '↺',  color: '#D97706', bg: '#FEF3C7', text: '#4A2C00' },
+  answer:     { icon: '✓',  color: '#378ADD', bg: '#E6F1FB', text: '#042C53' },
+  important:  { icon: '!',  color: '#DC143C', bg: '#FFE4E1', text: '#5C0011' },
+  done:       { icon: '★',  color: '#1D9E75', bg: '#E1F5EE', text: '#04342C' },
+};
 const GROUP_COLORS = [
   '#534ab7', '#1D9E75', '#D85A30', '#D4537E',
   '#378ADD', '#BA7517', '#E24B4A', '#639922',
   '#7F77DD', '#5DCAA5', '#F0997B', '#ED93B1',
   '#85B7EB', '#EF9F27', '#F09595', '#97C459',
+  '#9B59B6', '#16A085', '#2980B9', '#E67E22',
+  '#C0392B', '#27AE60', '#1ABC9C', '#F39C12',
+  '#8E44AD', '#2C3E50', '#D35400', '#7DCEA0',
+  '#85C1E9', '#F1948A', '#82E0AA', '#FAD7A0',
 ];
 
 const MAX_HISTORY = 50;
@@ -252,6 +281,29 @@ function saveData(data) {
 }
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
+
+function getDescendantGroupIds(groupId, groups) {
+  const result = new Set([groupId]);
+  const queue = [groupId];
+  while (queue.length > 0) {
+    const current = queue.shift();
+    groups.filter(g => g.parentId === current).forEach(g => {
+      result.add(g.id);
+      queue.push(g.id);
+    });
+  }
+  return result;
+}
+
+function isGroupDescendantOf(candidateId, ancestorId, groups) {
+  if (!candidateId || !ancestorId) return false;
+  let current = groups.find(g => g.id === candidateId);
+  while (current && current.parentId) {
+    if (current.parentId === ancestorId) return true;
+    current = groups.find(g => g.id === current.parentId);
+  }
+  return false;
+}
 
 function hexToRgba(hex, alpha) {
   const h = hex.replace('#', '');
@@ -362,7 +414,7 @@ function App() {
     const newNode = {
       id: uid(), title: 'Nový uzel', content: '', status: 'idea',
       x: center.x - 90, y: center.y - 30,
-      tags: [], groupId: null, image: null,
+      tags: [], groupId: null, image: null, expanded: false,
     };
     updateActiveMap(m => ({ ...m, nodes: [...m.nodes, newNode] }));
     setSelectedIds(new Set([newNode.id]));
@@ -388,8 +440,8 @@ function App() {
     updateActiveMap(m => ({ ...m, edges: m.edges.filter(e => e.id !== edgeId) }));
   }, [updateActiveMap]);
   
-  const addGroup = useCallback((name, color) => {
-    const newGroup = { id: uid(), name, color };
+  const addGroup = useCallback((name, color, parentId = null) => {
+    const newGroup = { id: uid(), name, color, parentId };
     updateActiveMap(m => ({ ...m, groups: [...m.groups, newGroup] }));
     return newGroup.id;
   }, [updateActiveMap]);
@@ -629,7 +681,7 @@ function App() {
           status: 'idea',
           x: pos.x - 100, y: pos.y - 50,
           tags: [], groupId: null,
-          image: dataUrl,
+          image: dataUrl, expanded: false,
         };
         updateActiveMap(m => ({ ...m, nodes: [...m.nodes, newNode] }));
         setSelectedIds(new Set([newNode.id]));
@@ -807,7 +859,7 @@ function App() {
     const q = search.toLowerCase();
     return nodes.filter(n => {
       if (filter !== 'all' && n.status !== filter) return false;
-      if (groupFilter && n.groupId !== groupFilter) return false;
+      if (groupFilter && !getDescendantGroupIds(groupFilter, groups).has(n.groupId)) return false;
       if (q) {
         const hay = (n.title + ' ' + n.content + ' ' + (n.tags || []).join(' ')).toLowerCase();
         if (!hay.includes(q)) return false;
@@ -835,19 +887,19 @@ function App() {
       const fh = fromEl?.offsetHeight || 60;
       const tw = toEl?.offsetWidth || 200;
       const th = toEl?.offsetHeight || 60;
-      return {
-        id: e.id,
-        x1: from.x + fw / 2, y1: from.y + fh / 2,
-        x2: to.x + tw / 2, y2: to.y + th / 2,
-      };
+      const x1 = from.x + fw / 2, y1 = from.y + fh / 2;
+      const x2 = to.x + tw / 2, y2 = to.y + th / 2;
+      const dx = x2 - x1;
+      const d = `M ${x1} ${y1} C ${x1 + dx * 0.45} ${y1} ${x2 - dx * 0.45} ${y2} ${x2} ${y2}`;
+      return { id: e.id, x1, y1, x2, y2, d };
     }).filter(Boolean);
   }, [edges, nodes, visibleIds]);
   
   const groupRegions = useMemo(() => {
-    return groups.map(g => {
+    const directBounds = {};
+    groups.forEach(g => {
       const groupNodes = nodes.filter(n => n.groupId === g.id);
-      if (groupNodes.length === 0) return null;
-      const padding = 24;
+      if (groupNodes.length === 0) { directBounds[g.id] = null; return; }
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       groupNodes.forEach(n => {
         const el = nodeRefs.current[n.id];
@@ -858,19 +910,49 @@ function App() {
         if (n.x + w > maxX) maxX = n.x + w;
         if (n.y + h > maxY) maxY = n.y + h;
       });
-      return {
-        ...g,
-        x: minX - padding,
-        y: minY - padding - 18,
-        w: maxX - minX + padding * 2,
-        h: maxY - minY + padding * 2 + 18,
-        count: groupNodes.length,
-      };
-    }).filter(Boolean);
+      directBounds[g.id] = { minX, minY, maxX, maxY };
+    });
+
+    const expanded = {};
+    groups.forEach(g => { expanded[g.id] = directBounds[g.id] ? { ...directBounds[g.id] } : null; });
+    for (let pass = 0; pass < 6; pass++) {
+      groups.forEach(g => {
+        if (!g.parentId || !expanded[g.id]) return;
+        const cb = expanded[g.id];
+        if (!expanded[g.parentId]) { expanded[g.parentId] = { ...cb }; return; }
+        const pb = expanded[g.parentId];
+        expanded[g.parentId] = {
+          minX: Math.min(pb.minX, cb.minX), minY: Math.min(pb.minY, cb.minY),
+          maxX: Math.max(pb.maxX, cb.maxX), maxY: Math.max(pb.maxY, cb.maxY),
+        };
+      });
+    }
+
+    const getDepth = (g) => {
+      let depth = 0, cur = g;
+      while (cur && cur.parentId) { cur = groups.find(x => x.id === cur.parentId); depth++; if (depth > 10) break; }
+      return depth;
+    };
+
+    return groups
+      .filter(g => expanded[g.id])
+      .sort((a, b) => getDepth(a) - getDepth(b))
+      .map(g => {
+        const b = expanded[g.id];
+        const depth = getDepth(g);
+        const pad = 24 + (depth === 0 ? 12 : 0);
+        return {
+          ...g,
+          x: b.minX - pad, y: b.minY - pad - 18,
+          w: b.maxX - b.minX + pad * 2, h: b.maxY - b.minY + pad * 2 + 18,
+          count: nodes.filter(n => n.groupId === g.id).length,
+          depth,
+        };
+      });
   }, [groups, nodes]);
   
   const counts = useMemo(() => {
-    const c = { idea: 0, question: 0, answer: 0, done: 0 };
+    const c = { idea: 0, question: 0, inprogress: 0, review: 0, answer: 0, important: 0, done: 0 };
     nodes.forEach(n => { c[n.status] = (c[n.status] || 0) + 1; });
     return c;
   }, [nodes]);
@@ -945,7 +1027,7 @@ function App() {
       </div>
       
       <div className="toolbar">
-        <h1>🧠 Státnice</h1>
+        <h1>Map</h1>
         <button className="primary" onClick={() => addNode()}>+ Uzel</button>
         <button onClick={autoLayout} title="Auto-layout">⇄</button>
         <button onClick={() => updateActiveMap(m => ({ ...m, viewport: { x: 0, y: 0, zoom: 1 } }), false)} title="Centrovat">⊙</button>
@@ -954,9 +1036,20 @@ function App() {
         
         <div className="filter-bar">
           <span className={`filter-chip ${filter === 'all' ? 'active' : ''}`} onClick={() => setFilter('all')}>Vše ({nodes.length})</span>
-          <span className={`filter-chip ${filter === 'question' ? 'active' : ''}`} onClick={() => setFilter('question')} style={filter === 'question' ? { background: '#EF9F27', color: '#412402', borderColor: '#EF9F27' } : {}}>? {counts.question}</span>
-          <span className={`filter-chip ${filter === 'answer' ? 'active' : ''}`} onClick={() => setFilter('answer')} style={filter === 'answer' ? { background: '#378ADD', color: '#fff', borderColor: '#378ADD' } : {}}>✓ {counts.answer}</span>
-          <span className={`filter-chip ${filter === 'done' ? 'active' : ''}`} onClick={() => setFilter('done')} style={filter === 'done' ? { background: '#1D9E75', color: '#fff', borderColor: '#1D9E75' } : {}}>★ {counts.done}</span>
+          {STATUSES.map(s => {
+            const meta = STATUS_META[s.id];
+            const isActive = filter === s.id;
+            return (
+              <span key={s.id}
+                className={`filter-chip ${isActive ? 'active' : ''}`}
+                onClick={() => setFilter(isActive ? 'all' : s.id)}
+                style={isActive && meta.color ? { background: meta.bg, color: meta.text, borderColor: meta.color } : {}}
+                title={s.label}
+              >
+                {meta.icon} {counts[s.id] || 0}
+              </span>
+            );
+          })}
         </div>
         
         <div style={{ position: 'relative' }}>
@@ -1017,8 +1110,8 @@ function App() {
             <g transform={`translate(${viewport.x},${viewport.y}) scale(${viewport.zoom})`}>
               {edgeLines.map(e => (
                 <g key={e.id} className="edge-line" onClick={() => deleteEdge(e.id)}>
-                  <line x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} stroke="transparent" strokeWidth={12} />
-                  <line x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} stroke={isDark ? '#b4b2a9' : '#888780'} strokeWidth={1.5} markerEnd="url(#arrow)" />
+                  <path d={e.d} stroke="transparent" strokeWidth={12} fill="none" />
+                  <path d={e.d} stroke={isDark ? '#b4b2a9' : '#888780'} strokeWidth={1.5} fill="none" markerEnd="url(#arrow)" />
                 </g>
               ))}
               {connectingFrom && (() => {
@@ -1028,7 +1121,7 @@ function App() {
                 const fw = fromEl?.offsetWidth || 200;
                 const fh = fromEl?.offsetHeight || 60;
                 return (
-                  <line x1={from.x + fw / 2} y1={from.y + fh / 2} x2={mousePos.x} y2={mousePos.y} stroke="#534ab7" strokeWidth={2} strokeDasharray="5,5" />
+                  <path d={`M ${from.x + fw/2} ${from.y + fh/2} C ${from.x + fw/2 + (mousePos.x - from.x - fw/2)*0.45} ${from.y + fh/2} ${mousePos.x - (mousePos.x - from.x - fw/2)*0.45} ${mousePos.y} ${mousePos.x} ${mousePos.y}`} stroke="#534ab7" strokeWidth={2} fill="none" strokeDasharray="5,5" />
                 );
               })()}
             </g>
@@ -1089,9 +1182,25 @@ function App() {
                   )}
                   <div className="node-title">{node.title || 'Bez názvu'}</div>
                   {node.image && <img className="node-image-thumb" src={node.image} alt="" />}
-                  {node.content && (
-                    <div className="node-preview">{node.content.replace(/[#*`>_\-!\[\]()]/g, '').slice(0, 100)}</div>
-                  )}
+                  {node.content && (() => {
+                    const stripped = node.content.replace(/[#*`>_\-!\[\]()]/g, '');
+                    const isLong = stripped.length > 80;
+                    return (
+                      <>
+                        <div className={`node-preview${node.expanded ? ' expanded' : ''}`}>
+                          {node.expanded ? stripped : stripped.slice(0, 100)}
+                        </div>
+                        {isLong && (
+                          <div className="node-expand-btn"
+                            onMouseDown={e => e.stopPropagation()}
+                            onClick={e => { e.stopPropagation(); updateNode(node.id, { expanded: !node.expanded }, false); }}
+                          >
+                            {node.expanded ? '▲ méně' : '▼ více'}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
                   {(node.tags || []).length > 0 && (
                     <div className="node-tags">
                       {node.tags.map(t => <span key={t} className="node-tag">#{t}</span>)}
@@ -1348,24 +1457,41 @@ function GroupModal({ groups, onAdd, onUpdate, onDelete, onClose, groupFilter, s
   const [name, setName] = useState('');
   const [color, setColor] = useState(GROUP_COLORS[0]);
   const [editingId, setEditingId] = useState(null);
-  
+  const [parentId, setParentId] = useState(null);
+
   const startEdit = (g) => {
     setEditingId(g.id);
     setName(g.name);
     setColor(g.color);
+    setParentId(g.parentId || null);
   };
-  
+
+  const resetForm = () => { setEditingId(null); setName(''); setColor(GROUP_COLORS[0]); setParentId(null); };
+
   const submit = () => {
     if (!name.trim()) return;
     if (editingId) {
-      onUpdate(editingId, { name: name.trim(), color });
+      onUpdate(editingId, { name: name.trim(), color, parentId: parentId || null });
     } else {
-      onAdd(name.trim(), color);
+      onAdd(name.trim(), color, parentId || null);
     }
-    setName('');
-    setColor(GROUP_COLORS[0]);
-    setEditingId(null);
+    resetForm();
   };
+
+  const renderGroupTree = (pid, depth) => groups
+    .filter(g => (g.parentId || null) === pid)
+    .map(g => (
+      <React.Fragment key={g.id}>
+        <div className="group-item" style={{ paddingLeft: 6 + depth * 14, background: groupFilter === g.id ? 'var(--bg-soft)' : undefined }}>
+          <span className="group-color-dot" style={{ background: g.color }} />
+          <span className="group-name" onClick={() => setGroupFilter(groupFilter === g.id ? null : g.id)}>{g.name}</span>
+          <span className="group-count">{nodeCounts[g.id] || 0}</span>
+          <button className="icon" onClick={() => startEdit(g)} title="Upravit">✎</button>
+          <button className="icon danger" onClick={() => { if (confirm(`Smazat okruh "${g.name}"? Uzly v něm zůstanou bez okruhu.`)) onDelete(g.id); }}>✕</button>
+        </div>
+        {renderGroupTree(g.id, depth + 1)}
+      </React.Fragment>
+    ));
   
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -1373,35 +1499,40 @@ function GroupModal({ groups, onAdd, onUpdate, onDelete, onClose, groupFilter, s
         <h3>Okruhy ({groups.length})</h3>
         
         {groups.length > 0 && (
-          <div className="group-list" style={{ marginBottom: 16, maxHeight: 200, overflowY: 'auto' }}>
+          <div className="group-list" style={{ marginBottom: 16, maxHeight: 220, overflowY: 'auto' }}>
             <div className="group-item" onClick={() => setGroupFilter(null)} style={{ background: groupFilter === null ? 'var(--bg-soft)' : undefined, cursor: 'pointer' }}>
               <span className="group-color-dot" style={{ background: 'var(--text-faint)' }} />
               <span className="group-name">Zobrazit všechny okruhy</span>
             </div>
-            {groups.map(g => (
-              <div key={g.id} className="group-item" style={{ background: groupFilter === g.id ? 'var(--bg-soft)' : undefined }}>
-                <span className="group-color-dot" style={{ background: g.color }} />
-                <span className="group-name" onClick={() => setGroupFilter(groupFilter === g.id ? null : g.id)}>{g.name}</span>
-                <span className="group-count">{nodeCounts[g.id] || 0}</span>
-                <button className="icon" onClick={() => startEdit(g)} title="Upravit">✎</button>
-                <button className="icon danger" onClick={() => { if (confirm(`Smazat okruh "${g.name}"? Uzly v něm zůstanou bez okruhu.`)) onDelete(g.id); }}>✕</button>
-              </div>
-            ))}
+            {renderGroupTree(null, 0)}
           </div>
         )}
-        
+
         <label>{editingId ? 'Upravit okruh' : 'Nový okruh'}</label>
         <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Např. IT Governance" onKeyDown={e => e.key === 'Enter' && submit()} />
-        
+
+        <label>Nadřazený okruh</label>
+        <select
+          value={parentId || ''}
+          onChange={e => setParentId(e.target.value || null)}
+          style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--border)', borderRadius: 6, fontSize: 13, background: 'var(--bg-card)', color: 'var(--text)', fontFamily: 'inherit' }}
+        >
+          <option value="">— žádný (kořenový okruh) —</option>
+          {groups
+            .filter(g => g.id !== editingId && !isGroupDescendantOf(g.id, editingId, groups))
+            .map(g => <option key={g.id} value={g.id}>{g.name}</option>)
+          }
+        </select>
+
         <label>Barva</label>
         <div className="color-grid">
           {GROUP_COLORS.map(c => (
             <div key={c} className={`color-swatch ${color === c ? 'selected' : ''}`} style={{ background: c }} onClick={() => setColor(c)} />
           ))}
         </div>
-        
+
         <div className="modal-actions">
-          {editingId && <button onClick={() => { setEditingId(null); setName(''); setColor(GROUP_COLORS[0]); }}>Zrušit editaci</button>}
+          {editingId && <button onClick={resetForm}>Zrušit editaci</button>}
           <button onClick={onClose}>Zavřít</button>
           <button className="primary" onClick={submit} disabled={!name.trim()}>
             {editingId ? 'Uložit' : 'Přidat'}
