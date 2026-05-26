@@ -114,6 +114,13 @@
   .node-expand-btn:hover { color: var(--text-muted); }
   .node.status-question .node-preview, .node.status-inprogress .node-preview, .node.status-review .node-preview, .node.status-answer .node-preview, .node.status-important .node-preview, .node.status-done .node-preview { color: inherit; opacity: 0.75; }
   
+  .node-affinities { display: flex; gap: 3px; margin-top: 5px; flex-wrap: wrap; }
+  .node-affinity-dot { width: 10px; height: 10px; border-radius: 50%; cursor: pointer; display: inline-block; border: 1.5px solid rgba(0,0,0,0.18); transition: transform 0.12s; flex-shrink: 0; }
+  [data-theme="dark"] .node-affinity-dot { border-color: rgba(255,255,255,0.2); }
+  .node-affinity-dot:hover { transform: scale(1.4); }
+  .affinity-highlight-bar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 8px; padding: 5px 14px; border-radius: 20px; font-size: 12px; font-weight: 500; color: #fff; z-index: 50; box-shadow: 0 2px 10px rgba(0,0,0,0.25); pointer-events: auto; }
+  .affinity-highlight-bar .x { cursor: pointer; opacity: 0.8; font-size: 11px; }
+  .affinity-highlight-bar .x:hover { opacity: 1; }
   .node-anchor { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--bg-card); border: 2px solid var(--accent); right: -7px; top: 50%; transform: translateY(-50%); cursor: crosshair; opacity: 0; transition: opacity 0.15s; }
   .node:hover .node-anchor, .node.selected .node-anchor { opacity: 1; }
   .node-anchor:hover { background: var(--accent); transform: translateY(-50%) scale(1.3); }
@@ -291,7 +298,7 @@ function loadData() {
     maps: {
       [firstMapId]: {
         id: firstMapId, name: 'Hlavní mapa',
-        nodes: [], edges: [], groups: [],
+        nodes: [], edges: [], groups: [], spojitosti: [],
         viewport: { x: 0, y: 0, zoom: 1 },
       },
     },
@@ -353,6 +360,8 @@ function App() {
   const [saving, setSaving] = useState(false);
   const [searchFocusId, setSearchFocusId] = useState(null);
   const [showGroupModal, setShowGroupModal] = useState(false);
+  const [showSpojitostModal, setShowSpojitostModal] = useState(false);
+  const [highlightAffinity, setHighlightAffinity] = useState(null);
   const [tagInput, setTagInput] = useState('');
   const [historyVersion, setHistoryVersion] = useState(0);
   
@@ -365,7 +374,7 @@ function App() {
   const saveTimerRef = useRef(null);
   
   const activeMap = data.maps[data.activeMapId];
-  const { nodes = [], edges = [], groups = [], viewport = { x: 0, y: 0, zoom: 1 } } = activeMap || {};
+  const { nodes = [], edges = [], groups = [], spojitosti = [], viewport = { x: 0, y: 0, zoom: 1 } } = activeMap || {};
   const isDark = data.theme === 'dark';
   
   useEffect(() => {
@@ -439,7 +448,7 @@ function App() {
     const newNode = {
       id: uid(), title: 'Nový uzel', content: '', status: 'idea',
       x: center.x - 90, y: center.y - 30,
-      tags: [], groupId: null, image: null, expanded: true,
+      tags: [], groupId: null, image: null, expanded: true, affinities: [],
     };
     updateActiveMap(m => ({ ...m, nodes: [...m.nodes, newNode] }));
     setSelectedIds(new Set([newNode.id]));
@@ -482,10 +491,29 @@ function App() {
       nodes: m.nodes.map(n => n.groupId === id ? { ...n, groupId: null } : n),
     }));
   }, [updateActiveMap]);
+
+  const addSpojitost = useCallback((name, color) => {
+    const s = { id: uid(), name, color };
+    updateActiveMap(m => ({ ...m, spojitosti: [...(m.spojitosti || []), s] }));
+    return s.id;
+  }, [updateActiveMap]);
+
+  const updateSpojitost = useCallback((id, patch) => {
+    updateActiveMap(m => ({ ...m, spojitosti: (m.spojitosti || []).map(s => s.id === id ? { ...s, ...patch } : s) }));
+  }, [updateActiveMap]);
+
+  const deleteSpojitost = useCallback((id) => {
+    updateActiveMap(m => ({
+      ...m,
+      spojitosti: (m.spojitosti || []).filter(s => s.id !== id),
+      nodes: m.nodes.map(n => ({ ...n, affinities: (n.affinities || []).filter(a => a !== id) })),
+    }));
+    if (highlightAffinity === id) setHighlightAffinity(null);
+  }, [updateActiveMap, highlightAffinity]);
   
   const addMap = () => {
     const id = uid();
-    const newMap = { id, name: `Mapa ${data.mapOrder.length + 1}`, nodes: [], edges: [], groups: [], viewport: { x: 0, y: 0, zoom: 1 } };
+    const newMap = { id, name: `Mapa ${data.mapOrder.length + 1}`, nodes: [], edges: [], groups: [], spojitosti: [], viewport: { x: 0, y: 0, zoom: 1 } };
     setData(d => ({
       ...d,
       maps: { ...d.maps, [id]: newMap },
@@ -706,7 +734,7 @@ function App() {
           status: 'idea',
           x: pos.x - 100, y: pos.y - 50,
           tags: [], groupId: null,
-          image: dataUrl, expanded: false,
+          image: dataUrl, expanded: true, affinities: [],
         };
         updateActiveMap(m => ({ ...m, nodes: [...m.nodes, newNode] }));
         setSelectedIds(new Set([newNode.id]));
@@ -735,6 +763,7 @@ function App() {
       } else if (e.key === 'Escape') {
         setSelectedIds(new Set());
         setConnectingFrom(null);
+        setHighlightAffinity(null);
       } else if (e.key === '0') {
         updateActiveMap(m => ({ ...m, viewport: { x: 0, y: 0, zoom: 1 } }), false);
       } else if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
@@ -1127,6 +1156,7 @@ function App() {
         </div>
         
         <button onClick={() => setShowGroupModal(true)} title="Spravovat okruhy">📁 Okruhy ({groups.length})</button>
+        <button onClick={() => setShowSpojitostModal(true)} title="Spravovat spojitosti">🔗 Spojitosti ({spojitosti.length})</button>
         <button onClick={printMap} title="Tisk / PDF (Ctrl+P)">🖨</button>
         <button onClick={exportPng} title="Export PNG">🖼</button>
         <button onClick={exportData} title="Export">↓</button>
@@ -1149,6 +1179,16 @@ function App() {
           onWheel={onWheel}
         >
           <div className="canvas-bg" style={{ position: 'absolute', inset: 0 }} />
+          {highlightAffinity && (() => {
+            const sp = spojitosti.find(x => x.id === highlightAffinity);
+            if (!sp) return null;
+            return (
+              <div className="affinity-highlight-bar" style={{ background: sp.color }}>
+                🔗 {sp.name}
+                <span className="x" onClick={() => setHighlightAffinity(null)}>✕</span>
+              </div>
+            );
+          })()}
           
           {nodes.length === 0 && (
             <div className="empty-state">
@@ -1198,7 +1238,15 @@ function App() {
                 <div
                   className="group-label"
                   style={{ left: g.x + 8, top: g.y + 4, background: g.color }}
-                  onClick={() => setShowGroupModal(true)}
+                  onClick={(e) => {
+                    if (e.ctrlKey || e.metaKey) {
+                      const ids = getDescendantGroupIds(g.id, groups);
+                      setSelectedIds(new Set(nodes.filter(n => ids.has(n.groupId)).map(n => n.id)));
+                    } else {
+                      setShowGroupModal(true);
+                    }
+                  }}
+                  title="Klik = okruhy · Ctrl+Klik = vybrat uzly"
                 >
                   {g.name} ({g.count})
                 </div>
@@ -1217,7 +1265,8 @@ function App() {
               const isConnecting = connectingFrom === node.id;
               const isSelected = selectedIds.has(node.id);
               const group = groups.find(g => g.id === node.groupId);
-              
+              const dimmed = highlightAffinity && !(node.affinities || []).includes(highlightAffinity);
+
               return (
                 <div
                   key={node.id}
@@ -1226,10 +1275,11 @@ function App() {
                   data-node-id={node.id}
                   style={{
                     left: node.x, top: node.y,
-                    opacity: visible ? 1 : 0.15,
+                    opacity: visible ? (dimmed ? 0.18 : 1) : 0.15,
                     pointerEvents: visible ? 'auto' : 'none',
                     borderLeftWidth: group ? '5px' : undefined,
                     borderLeftColor: group ? group.color : undefined,
+                    transition: 'opacity 0.2s',
                   }}
                   onMouseDown={(e) => onNodeMouseDown(e, node)}
                   onDoubleClick={(e) => { e.stopPropagation(); setSelectedIds(new Set([node.id])); setEditorTab('edit'); }}
@@ -1267,6 +1317,22 @@ function App() {
                   <span className={`node-status`}>
                     {STATUSES.find(s => s.id === node.status)?.label}
                   </span>
+                  {(node.affinities || []).length > 0 && (
+                    <div className="node-affinities">
+                      {(node.affinities || []).map(aid => {
+                        const sp = spojitosti.find(x => x.id === aid);
+                        if (!sp) return null;
+                        return (
+                          <span key={aid} className="node-affinity-dot"
+                            style={{ background: sp.color, outline: highlightAffinity === aid ? `2px solid ${sp.color}` : 'none', outlineOffset: 1 }}
+                            title={sp.name}
+                            onMouseDown={e => e.stopPropagation()}
+                            onClick={e => { e.stopPropagation(); setHighlightAffinity(highlightAffinity === aid ? null : aid); }}
+                          />
+                        );
+                      })}
+                    </div>
+                  )}
                   <div className="node-anchor" onMouseDown={(e) => onAnchorMouseDown(e, node)} title="Táhni pro propojení" />
                 </div>
               );
@@ -1347,6 +1413,31 @@ function App() {
                 </select>
               </div>
               
+              <div className="sidebar-section">
+                <div className="sidebar-label">Spojitosti</div>
+                {spojitosti.length === 0 ? (
+                  <em style={{ fontSize: 11, color: 'var(--text-faint)' }}>Žádné — přidej přes 🔗 Spojitosti</em>
+                ) : (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                    {spojitosti.map(sp => {
+                      const active = (selected.affinities || []).includes(sp.id);
+                      return (
+                        <span key={sp.id}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 10, fontSize: 11, cursor: 'pointer', border: `1.5px solid ${sp.color}`, background: active ? sp.color : 'transparent', color: active ? '#fff' : 'var(--text)', transition: 'all 0.15s' }}
+                          onClick={() => {
+                            const affs = selected.affinities || [];
+                            updateNode(selected.id, { affinities: active ? affs.filter(a => a !== sp.id) : [...affs, sp.id] });
+                          }}
+                        >
+                          <span style={{ width: 7, height: 7, borderRadius: '50%', background: active ? '#fff' : sp.color, display: 'inline-block', flexShrink: 0 }} />
+                          {sp.name}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
               <div className="sidebar-section">
                 <div className="sidebar-label">Tagy</div>
                 <div className="tag-input-row">
@@ -1491,6 +1582,22 @@ function App() {
         )}
       </div>
       
+      {showSpojitostModal && (
+        <SpojitostModal
+          spojitosti={spojitosti}
+          onAdd={addSpojitost}
+          onUpdate={updateSpojitost}
+          onDelete={deleteSpojitost}
+          onClose={() => setShowSpojitostModal(false)}
+          highlightAffinity={highlightAffinity}
+          setHighlightAffinity={setHighlightAffinity}
+          nodeCounts={(() => {
+            const c = {};
+            nodes.forEach(n => (n.affinities || []).forEach(a => { c[a] = (c[a] || 0) + 1; }));
+            return c;
+          })()}
+        />
+      )}
       {showGroupModal && (
         <GroupModal
           groups={groups}
@@ -1581,6 +1688,68 @@ function GroupModal({ groups, onAdd, onUpdate, onDelete, onClose, groupFilter, s
             .map(g => <option key={g.id} value={g.id}>{g.name}</option>)
           }
         </select>
+
+        <label>Barva</label>
+        <div className="color-grid">
+          {GROUP_COLORS.map(c => (
+            <div key={c} className={`color-swatch ${color === c ? 'selected' : ''}`} style={{ background: c }} onClick={() => setColor(c)} />
+          ))}
+        </div>
+
+        <div className="modal-actions">
+          {editingId && <button onClick={resetForm}>Zrušit editaci</button>}
+          <button onClick={onClose}>Zavřít</button>
+          <button className="primary" onClick={submit} disabled={!name.trim()}>
+            {editingId ? 'Uložit' : 'Přidat'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SpojitostModal({ spojitosti, onAdd, onUpdate, onDelete, onClose, highlightAffinity, setHighlightAffinity, nodeCounts }) {
+  const [name, setName] = useState('');
+  const [color, setColor] = useState(GROUP_COLORS[1]);
+  const [editingId, setEditingId] = useState(null);
+
+  const startEdit = (s) => { setEditingId(s.id); setName(s.name); setColor(s.color); };
+  const resetForm = () => { setEditingId(null); setName(''); setColor(GROUP_COLORS[1]); };
+
+  const submit = () => {
+    if (!name.trim()) return;
+    if (editingId) onUpdate(editingId, { name: name.trim(), color });
+    else onAdd(name.trim(), color);
+    resetForm();
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <h3>Spojitosti ({spojitosti.length})</h3>
+        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.5 }}>
+          Uzly mohou sdílet více spojitostí — klikni na tečku v uzlu nebo na řádek níže pro zvýraznění.
+        </p>
+
+        {spojitosti.length > 0 && (
+          <div className="group-list" style={{ marginBottom: 16, maxHeight: 220, overflowY: 'auto' }}>
+            {spojitosti.map(sp => (
+              <div key={sp.id} className="group-item" style={{ background: highlightAffinity === sp.id ? 'var(--bg-soft)' : undefined }}>
+                <span className="group-color-dot" style={{ background: sp.color, borderRadius: '50%' }} />
+                <span className="group-name" style={{ cursor: 'pointer' }}
+                  onClick={() => setHighlightAffinity(highlightAffinity === sp.id ? null : sp.id)}>
+                  {sp.name}
+                </span>
+                <span className="group-count">{nodeCounts[sp.id] || 0} uzlů</span>
+                <button className="icon" onClick={() => startEdit(sp)} title="Upravit">✎</button>
+                <button className="icon danger" onClick={() => { if (confirm(`Smazat spojitost "${sp.name}"?`)) onDelete(sp.id); }}>✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <label>{editingId ? 'Upravit spojitost' : 'Nová spojitost'}</label>
+        <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder="Např. Trestní právo" onKeyDown={e => e.key === 'Enter' && submit()} />
 
         <label>Barva</label>
         <div className="color-grid">
