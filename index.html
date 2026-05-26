@@ -381,6 +381,7 @@ function App() {
   const [searchFocusId, setSearchFocusId] = useState(null);
   const [showGroupModal, setShowGroupModal] = useState(false);
   const [showSpojitostModal, setShowSpojitostModal] = useState(false);
+  const [showBackupModal, setShowBackupModal] = useState(false);
   const [highlightAffinity, setHighlightAffinity] = useState(null);
   const [tagInput, setTagInput] = useState('');
   const [historyVersion, setHistoryVersion] = useState(0);
@@ -410,6 +411,13 @@ function App() {
     }, 400);
   }, [data]);
   
+  const dataRef = useRef(data);
+  useEffect(() => { dataRef.current = data; }, [data]);
+  useEffect(() => {
+    const id = setInterval(() => saveBackup(dataRef.current), 10 * 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const pushHistory = useCallback(() => {
     historyRef.current.past.push(JSON.parse(JSON.stringify(activeMap)));
     if (historyRef.current.past.length > MAX_HISTORY) historyRef.current.past.shift();
@@ -1184,6 +1192,7 @@ function App() {
         <button onClick={() => setShowSpojitostModal(true)} title="Spravovat spojitosti">🔗 Spojitosti ({spojitosti.length})</button>
         <button onClick={printMap} title="Tisk / PDF (Ctrl+P)">🖨</button>
         <button onClick={exportPng} title="Export PNG">🖼</button>
+        <button onClick={() => setShowBackupModal(true)} title="Zálohy">💾</button>
         <button onClick={exportData} title="Export">↓</button>
         <button onClick={importData} title="Import">↑</button>
         <button onClick={() => setData(d => ({ ...d, theme: d.theme === 'dark' ? 'light' : 'dark' }))} title="Téma">{isDark ? '☀' : '🌙'}</button>
@@ -1643,6 +1652,13 @@ function App() {
         )}
       </div>
       
+      {showBackupModal && (
+        <BackupModal
+          onRestore={(d) => { setData(d); setSelectedIds(new Set()); setShowBackupModal(false); }}
+          onManualBackup={() => { saveBackup(dataRef.current); setShowBackupModal(false); setTimeout(() => setShowBackupModal(true), 50); }}
+          onClose={() => setShowBackupModal(false)}
+        />
+      )}
       {showSpojitostModal && (
         <SpojitostModal
           spojitosti={spojitosti}
@@ -1825,6 +1841,58 @@ function SpojitostModal({ spojitosti, onAdd, onUpdate, onDelete, onClose, highli
           <button className="primary" onClick={submit} disabled={!name.trim()}>
             {editingId ? 'Uložit' : 'Přidat'}
           </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function BackupModal({ onRestore, onManualBackup, onClose }) {
+  const [backups, setBackups] = useState(loadBackups);
+
+  const remove = (ts) => {
+    const updated = backups.filter(b => b.ts !== ts);
+    localStorage.setItem(BACKUP_KEY, JSON.stringify(updated));
+    setBackups(updated);
+  };
+
+  const restore = (b) => {
+    if (confirm(`Obnovit zálohu z ${formatBackupTime(b.ts)}?\nAktuální data budou nahrazena.`)) onRestore(b.data);
+  };
+
+  const manualBackup = () => {
+    onManualBackup();
+    setBackups(loadBackups());
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" onClick={e => e.stopPropagation()}>
+        <h3>Zálohy</h3>
+        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 14, lineHeight: 1.5 }}>
+          Automaticky každých 10 minut · posledních 5 snímků
+        </p>
+        {backups.length === 0 ? (
+          <p style={{ fontSize: 12, color: 'var(--text-faint)', marginBottom: 14 }}>
+            Žádné zálohy zatím. Klikni "Zálohovat teď" nebo počkej 10 minut.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 14 }}>
+            {backups.map(b => (
+              <div key={b.ts} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 10px', border: '1px solid var(--border-light)', borderRadius: 6 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)' }}>{formatBackupTime(b.ts)}</div>
+                  <div style={{ fontSize: 10, color: 'var(--text-faint)' }}>{b.nodeCount} uzlů</div>
+                </div>
+                <button onClick={() => restore(b)}>Obnovit</button>
+                <button className="icon danger" onClick={() => remove(b.ts)}>✕</button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div className="modal-actions">
+          <button className="primary" onClick={manualBackup}>💾 Zálohovat teď</button>
+          <button onClick={onClose}>Zavřít</button>
         </div>
       </div>
     </div>
