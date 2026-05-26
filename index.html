@@ -5,6 +5,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.24.7/babel.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.2/marked.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <style>
   :root {
@@ -241,14 +242,38 @@ const STATUS_META = {
   done:       { icon: '★',  color: '#1D9E75', bg: '#E1F5EE', text: '#04342C' },
 };
 const GROUP_COLORS = [
-  '#534ab7', '#1D9E75', '#D85A30', '#D4537E',
-  '#378ADD', '#BA7517', '#E24B4A', '#639922',
-  '#7F77DD', '#5DCAA5', '#F0997B', '#ED93B1',
-  '#85B7EB', '#EF9F27', '#F09595', '#97C459',
-  '#9B59B6', '#16A085', '#2980B9', '#E67E22',
-  '#C0392B', '#27AE60', '#1ABC9C', '#F39C12',
-  '#8E44AD', '#2C3E50', '#D35400', '#7DCEA0',
-  '#85C1E9', '#F1948A', '#82E0AA', '#FAD7A0',
+  // Červená
+  '#FF8080', '#FF3333', '#CC0000', '#8B1515',
+  // Vermilion
+  '#FF9977', '#FF5522', '#CC2200', '#8B2600',
+  // Oranžová
+  '#FFBB77', '#FF8822', '#CC5500', '#8B3C00',
+  // Jantarová
+  '#FFCC66', '#FFAA00', '#BB7700', '#7A4D00',
+  // Žlutá
+  '#FFEE55', '#FFD700', '#B89600', '#7A6400',
+  // Žlutozelená
+  '#BBEE44', '#88CC11', '#5C8A00', '#3F6000',
+  // Zelená
+  '#77DD77', '#33BB33', '#1A8A1A', '#145C14',
+  // Smaragdová
+  '#55DDAA', '#11BB88', '#008855', '#006644',
+  // Teal
+  '#55DDDD', '#11BBBB', '#008888', '#006666',
+  // Nebeská
+  '#66BBEE', '#2299DD', '#0077AA', '#005C88',
+  // Modrá
+  '#6688EE', '#3355DD', '#1133AA', '#0A2280',
+  // Královská
+  '#7777EE', '#5555DD', '#2233BB', '#111980',
+  // Fialová
+  '#9966EE', '#7733DD', '#5511BB', '#3A0A80',
+  // Purpurová
+  '#BB55EE', '#9922CC', '#770099', '#550075',
+  // Magenta
+  '#EE55BB', '#CC2299', '#991177', '#660050',
+  // Růžová
+  '#FF7799', '#FF3366', '#CC0044', '#8B0030',
 ];
 
 const MAX_HISTORY = 50;
@@ -414,7 +439,7 @@ function App() {
     const newNode = {
       id: uid(), title: 'Nový uzel', content: '', status: 'idea',
       x: center.x - 90, y: center.y - 30,
-      tags: [], groupId: null, image: null, expanded: false,
+      tags: [], groupId: null, image: null, expanded: true,
     };
     updateActiveMap(m => ({ ...m, nodes: [...m.nodes, newNode] }));
     setSelectedIds(new Set([newNode.id]));
@@ -816,6 +841,37 @@ function App() {
     input.click();
   };
   
+  const exportPng = async () => {
+    if (nodes.length === 0) { alert('Mapa je prázdná.'); return; }
+    const minX = Math.min(...nodes.map(n => n.x)) - 60;
+    const minY = Math.min(...nodes.map(n => n.y)) - 60;
+    const maxX = Math.max(...nodes.map(n => n.x + 240)) + 60;
+    const maxY = Math.max(...nodes.map(n => n.y + 120)) + 60;
+    const w = canvasRef.current.clientWidth;
+    const h = canvasRef.current.clientHeight;
+    const zoom = Math.min(w / (maxX - minX), h / (maxY - minY), 1.5);
+    updateActiveMap(m => ({
+      ...m,
+      viewport: { x: -minX * zoom, y: -minY * zoom, zoom },
+    }), false);
+    await new Promise(r => setTimeout(r, 350));
+    const cvs = await html2canvas(canvasRef.current, {
+      backgroundColor: isDark ? '#1a1a1a' : '#faf9f5',
+      scale: 2,
+      useCORS: true,
+      ignoreElements: el =>
+        el.classList.contains('help') ||
+        el.classList.contains('zoom-controls') ||
+        el.classList.contains('minimap') ||
+        el.classList.contains('node-anchor'),
+    });
+    const url = cvs.toDataURL('image/png');
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `myslenkomapa-${new Date().toISOString().slice(0, 10)}.png`;
+    a.click();
+  };
+
   const printMap = () => {
     if (nodes.length > 0) {
       const minX = Math.min(...nodes.map(n => n.x)) - 40;
@@ -1072,6 +1128,7 @@ function App() {
         
         <button onClick={() => setShowGroupModal(true)} title="Spravovat okruhy">📁 Okruhy ({groups.length})</button>
         <button onClick={printMap} title="Tisk / PDF (Ctrl+P)">🖨</button>
+        <button onClick={exportPng} title="Export PNG">🖼</button>
         <button onClick={exportData} title="Export">↓</button>
         <button onClick={importData} title="Import">↑</button>
         <button onClick={() => setData(d => ({ ...d, theme: d.theme === 'dark' ? 'light' : 'dark' }))} title="Téma">{isDark ? '☀' : '🌙'}</button>
@@ -1184,18 +1241,19 @@ function App() {
                   {node.image && <img className="node-image-thumb" src={node.image} alt="" />}
                   {node.content && (() => {
                     const stripped = node.content.replace(/[#*`>_\-!\[\]()]/g, '');
-                    const isLong = stripped.length > 80;
+                    const isExpanded = node.expanded !== false;
+                    const isLong = stripped.length > 120;
                     return (
                       <>
-                        <div className={`node-preview${node.expanded ? ' expanded' : ''}`}>
-                          {node.expanded ? stripped : stripped.slice(0, 100)}
+                        <div className={`node-preview${isExpanded ? ' expanded' : ''}`}>
+                          {isExpanded ? stripped : stripped.slice(0, 100)}
                         </div>
                         {isLong && (
                           <div className="node-expand-btn"
                             onMouseDown={e => e.stopPropagation()}
-                            onClick={e => { e.stopPropagation(); updateNode(node.id, { expanded: !node.expanded }, false); }}
+                            onClick={e => { e.stopPropagation(); updateNode(node.id, { expanded: !isExpanded }, false); }}
                           >
-                            {node.expanded ? '▲ méně' : '▼ více'}
+                            {isExpanded ? '▲ méně' : '▼ více'}
                           </div>
                         )}
                       </>
