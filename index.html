@@ -90,13 +90,13 @@
   
   .node.status-question { background: #FAEEDA; border-color: #EF9F27; color: #412402; }
   .node.status-inprogress { background: #EDE9FF; border-color: #7B6FD8; color: #2D1F8A; }
-  .node.status-review { background: #FEF3C7; border-color: #D97706; color: #4A2C00; }
+  .node.status-review { background: #CCFAF4; border-color: #0D9488; color: #0A3D38; }
   .node.status-answer { background: #E6F1FB; border-color: #378ADD; color: #042C53; }
   .node.status-important { background: #FFE4E1; border-color: #DC143C; color: #5C0011; }
   .node.status-done { background: #E1F5EE; border-color: #1D9E75; color: #04342C; }
   [data-theme="dark"] .node.status-question { background: #4a3408; border-color: #EF9F27; color: #FAEEDA; }
   [data-theme="dark"] .node.status-inprogress { background: #231856; border-color: #7B6FD8; color: #EDE9FF; }
-  [data-theme="dark"] .node.status-review { background: #3D2800; border-color: #D97706; color: #FEF3C7; }
+  [data-theme="dark"] .node.status-review { background: #082E2A; border-color: #0D9488; color: #CCFAF4; }
   [data-theme="dark"] .node.status-answer { background: #0C2540; border-color: #378ADD; color: #E6F1FB; }
   [data-theme="dark"] .node.status-important { background: #3D0010; border-color: #DC143C; color: #FFE4E1; }
   [data-theme="dark"] .node.status-done { background: #0a3024; border-color: #1D9E75; color: #E1F5EE; }
@@ -132,7 +132,7 @@
   .status-btn.active.idea { background: var(--bg-soft); border-color: #5F5E5A; }
   .status-btn.active.question { background: #FAEEDA; border-color: #EF9F27; color: #633806; }
   .status-btn.active.inprogress { background: #EDE9FF; border-color: #7B6FD8; color: #2D1F8A; }
-  .status-btn.active.review { background: #FEF3C7; border-color: #D97706; color: #4A2C00; }
+  .status-btn.active.review { background: #CCFAF4; border-color: #0D9488; color: #0A3D38; }
   .status-btn.active.answer { background: #E6F1FB; border-color: #378ADD; color: #0C447C; }
   .status-btn.active.important { background: #FFE4E1; border-color: #DC143C; color: #5C0011; }
   .status-btn.active.done { background: #E1F5EE; border-color: #1D9E75; color: #04342C; }
@@ -225,18 +225,18 @@ const STORAGE_KEY = 'mindmap-statnice-v2';
 const STATUSES = [
   { id: 'idea', label: 'Nápad' },
   { id: 'question', label: 'Otázka' },
-  { id: 'inprogress', label: 'Probíhá' },
-  { id: 'review', label: 'Opakovat' },
+  { id: 'inprogress', label: 'Doplněk' },
+  { id: 'review', label: 'Dělení' },
   { id: 'answer', label: 'Odpověď' },
   { id: 'important', label: 'Důležité' },
-  { id: 'done', label: 'Hotovo' },
+  { id: 'done', label: 'Vysvětlení' },
 ];
 
 const STATUS_META = {
   idea:       { icon: '○', color: null },
   question:   { icon: '?',  color: '#EF9F27', bg: '#FAEEDA', text: '#412402' },
   inprogress: { icon: '⏳', color: '#7B6FD8', bg: '#EDE9FF', text: '#2D1F8A' },
-  review:     { icon: '↺',  color: '#D97706', bg: '#FEF3C7', text: '#4A2C00' },
+  review:     { icon: '↺',  color: '#0D9488', bg: '#CCFAF4', text: '#0A3D38' },
   answer:     { icon: '✓',  color: '#378ADD', bg: '#E6F1FB', text: '#042C53' },
   important:  { icon: '!',  color: '#DC143C', bg: '#FFE4E1', text: '#5C0011' },
   done:       { icon: '★',  color: '#1D9E75', bg: '#E1F5EE', text: '#04342C' },
