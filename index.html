@@ -966,6 +966,11 @@ function App() {
       const to = nodes.find(n => n.id === e.to);
       if (!from || !to) return null;
       if (!visibleIds.has(from.id) || !visibleIds.has(to.id)) return null;
+      if (highlightAffinity) {
+        const fromHas = (from.affinities || []).includes(highlightAffinity);
+        const toHas = (to.affinities || []).includes(highlightAffinity);
+        if (!fromHas || !toHas) return null;
+      }
       const fromEl = nodeRefs.current[from.id];
       const toEl = nodeRefs.current[to.id];
       const fw = fromEl?.offsetWidth || 200;
@@ -978,7 +983,7 @@ function App() {
       const d = `M ${x1} ${y1} C ${x1 + dx * 0.45} ${y1} ${x2 - dx * 0.45} ${y2} ${x2} ${y2}`;
       return { id: e.id, x1, y1, x2, y2, d };
     }).filter(Boolean);
-  }, [edges, nodes, visibleIds]);
+  }, [edges, nodes, visibleIds, highlightAffinity]);
   
   const groupRegions = useMemo(() => {
     const directBounds = {};
@@ -1562,6 +1567,42 @@ function App() {
                   {groups.map(g => <option key={g.id} value={g.id}>{g.name}</option>)}
                 </select>
               </div>
+              {spojitosti.length > 0 && (
+                <div className="sidebar-section">
+                  <div className="sidebar-label">Hromadné spojitosti</div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+                    {spojitosti.map(sp => {
+                      const selectedArr = [...selectedIds];
+                      const withIt = selectedArr.filter(id => (nodes.find(n => n.id === id)?.affinities || []).includes(sp.id));
+                      const allHave = withIt.length === selectedArr.length;
+                      const someHave = withIt.length > 0 && !allHave;
+                      return (
+                        <span key={sp.id}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 8px', borderRadius: 10, fontSize: 11, cursor: 'pointer', border: `1.5px solid ${sp.color}`, background: allHave ? sp.color : someHave ? `${sp.color}44` : 'transparent', color: allHave ? '#fff' : 'var(--text)', transition: 'all 0.15s' }}
+                          title={allHave ? 'Odebrat od všech' : someHave ? `Přidat zbývajícím (${selectedArr.length - withIt.length})` : 'Přidat všem'}
+                          onClick={() => {
+                            pushHistory();
+                            updateActiveMap(m => ({
+                              ...m,
+                              nodes: m.nodes.map(n => {
+                                if (!selectedIds.has(n.id)) return n;
+                                const affs = n.affinities || [];
+                                const has = affs.includes(sp.id);
+                                if (allHave) return { ...n, affinities: affs.filter(a => a !== sp.id) };
+                                return has ? n : { ...n, affinities: [...affs, sp.id] };
+                              }),
+                            }), false);
+                          }}
+                        >
+                          <span style={{ width: 7, height: 7, borderRadius: '50%', background: allHave ? '#fff' : sp.color, display: 'inline-block', flexShrink: 0 }} />
+                          {sp.name}
+                          {someHave && <span style={{ opacity: 0.7, fontSize: 9 }}> {withIt.length}/{selectedArr.length}</span>}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <div className="sidebar-section">
                 <button className="danger" onClick={() => deleteNodes([...selectedIds])} style={{ width: '100%' }}>
                   Smazat {selectedIds.size} uzlů
