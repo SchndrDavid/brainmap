@@ -42,9 +42,13 @@
   .app { display: flex; flex-direction: column; height: 100vh; }
   
   .tabs-bar { display: flex; align-items: center; background: var(--bg-soft); padding: 0 8px; border-bottom: 1px solid var(--border-light); flex-shrink: 0; overflow-x: auto; }
-  .tab-item { display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 12px; cursor: pointer; border-right: 1px solid var(--border-light); color: var(--text-muted); white-space: nowrap; position: relative; max-width: 200px; }
+  .tab-item { display: flex; align-items: center; gap: 6px; padding: 8px 14px; font-size: 12px; cursor: grab; border-right: 1px solid var(--border-light); color: var(--text-muted); white-space: nowrap; position: relative; max-width: 200px; border-bottom: 3px solid transparent; transition: border-color 0.15s; }
   .tab-item.active { background: var(--bg); color: var(--text); font-weight: 500; }
   .tab-item:hover { background: var(--bg); }
+  .tab-item.tab-dragging { opacity: 0.4; cursor: grabbing; }
+  .tab-item.tab-drag-over { border-left: 2.5px solid var(--accent); }
+  .tab-color-menu { position: fixed; z-index: 1000; background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+  .tab-color-menu-title { font-size: 10px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 7px; }
   .tab-name { overflow: hidden; text-overflow: ellipsis; max-width: 140px; }
   .tab-close { opacity: 0.5; padding: 0 2px; }
   .tab-close:hover { opacity: 1; color: #e24b4a; }
@@ -385,6 +389,9 @@ function App() {
   const [highlightAffinity, setHighlightAffinity] = useState(null);
   const [tagInput, setTagInput] = useState('');
   const [historyVersion, setHistoryVersion] = useState(0);
+  const [dragTabId, setDragTabId] = useState(null);
+  const [dragOverTabId, setDragOverTabId] = useState(null);
+  const [tabMenu, setTabMenu] = useState(null);
   
   const canvasRef = useRef(null);
   const nodeRefs = useRef({});
@@ -474,7 +481,7 @@ function App() {
   const addNode = useCallback((pos) => {
     const center = pos || screenToCanvas(canvasRef.current.clientWidth / 2, canvasRef.current.clientHeight / 2);
     const newNode = {
-      id: uid(), title: 'Nový uzel', content: '', status: 'idea',
+      id: uid(), title: '', content: '', status: 'idea',
       x: center.x - 90, y: center.y - 30,
       tags: [], groupId: null, image: null, expanded: true, affinities: [],
     };
@@ -680,13 +687,21 @@ function App() {
         if (nodeEl) {
           const targetId = nodeEl.dataset.nodeId;
           if (targetId && targetId !== connectingFrom) {
-            const exists = edges.some(ed =>
-              (ed.from === connectingFrom && ed.to === targetId) ||
-              (ed.from === targetId && ed.to === connectingFrom)
-            );
-            if (!exists) {
-              updateActiveMap(m => ({ ...m, edges: [...m.edges, { id: uid(), from: connectingFrom, to: targetId }] }));
-            }
+            const sourceIds = (selectedIds.has(connectingFrom) && selectedIds.size > 1)
+              ? [...selectedIds].filter(id => id !== targetId)
+              : [connectingFrom];
+            updateActiveMap(m => {
+              let newEdges = [...m.edges];
+              sourceIds.forEach(srcId => {
+                if (srcId === targetId) return;
+                const exists = newEdges.some(ed =>
+                  (ed.from === srcId && ed.to === targetId) ||
+                  (ed.from === targetId && ed.to === srcId)
+                );
+                if (!exists) newEdges.push({ id: uid(), from: srcId, to: targetId });
+              });
+              return { ...m, edges: newEdges };
+            });
           }
         }
         setConnectingFrom(null);
@@ -702,7 +717,7 @@ function App() {
   
   const onCanvasMouseDown = (e) => {
     if (e.target !== canvasRef.current && !e.target.classList.contains('canvas-bg')) return;
-    if (e.shiftKey) {
+    if (e.shiftKey || e.ctrlKey) {
       selectionRef.current = screenToCanvas(e.clientX, e.clientY);
       setSelectedIds(new Set());
     } else {
@@ -1110,6 +1125,29 @@ function App() {
     }), false);
   };
   
+  const reorderTabs = (fromId, toId) => {
+    if (fromId === toId) return;
+    setData(d => {
+      const order = [...d.mapOrder];
+      const fi = order.indexOf(fromId), ti = order.indexOf(toId);
+      order.splice(fi, 1);
+      order.splice(ti, 0, fromId);
+      return { ...d, mapOrder: order };
+    });
+  };
+
+  const setTabColor = (id, color) => {
+    setData(d => ({ ...d, maps: { ...d.maps, [id]: { ...d.maps[id], color: color || null } } }));
+    setTabMenu(null);
+  };
+
+  useEffect(() => {
+    if (!tabMenu) return;
+    const close = () => setTabMenu(null);
+    window.addEventListener('click', close);
+    return () => window.removeEventListener('click', close);
+  }, [tabMenu]);
+
   const addTagToNode = (nodeId, tag) => {
     const t = tag.trim().toLowerCase().replace(/^#/, '');
     if (!t) return;
@@ -1128,21 +1166,48 @@ function App() {
   
   return (
     <div className="app">
-      <div className="tabs-bar">
-        {data.mapOrder.map(id => (
-          <div
-            key={id}
-            className={`tab-item ${id === data.activeMapId ? 'active' : ''}`}
-            onClick={() => switchMap(id)}
-            onDoubleClick={() => renameMap(id)}
-            title="Dvojklik pro přejmenování"
-          >
-            <span className="tab-name">{data.maps[id].name}</span>
-            <span className="tab-close" onClick={(e) => { e.stopPropagation(); closeMap(id); }}>✕</span>
-          </div>
-        ))}
+      <div className="tabs-bar" onDragOver={e => e.preventDefault()}>
+        {data.mapOrder.map(id => {
+          const mapColor = data.maps[id].color;
+          return (
+            <div
+              key={id}
+              className={`tab-item ${id === data.activeMapId ? 'active' : ''} ${dragTabId === id ? 'tab-dragging' : ''} ${dragOverTabId === id && dragTabId !== id ? 'tab-drag-over' : ''}`}
+              style={{ borderBottomColor: mapColor || 'transparent' }}
+              draggable
+              onClick={() => switchMap(id)}
+              onDoubleClick={() => renameMap(id)}
+              onContextMenu={(e) => { e.preventDefault(); setTabMenu({ id, x: e.clientX, y: e.clientY }); }}
+              onDragStart={(e) => { setDragTabId(id); e.dataTransfer.effectAllowed = 'move'; }}
+              onDragOver={(e) => { e.preventDefault(); setDragOverTabId(id); }}
+              onDrop={(e) => { e.preventDefault(); reorderTabs(dragTabId, id); setDragTabId(null); setDragOverTabId(null); }}
+              onDragEnd={() => { setDragTabId(null); setDragOverTabId(null); }}
+              title="Přetáhni pro přeřazení · Pravý klik pro barvu · Dvojklik pro přejmenování"
+            >
+              {mapColor && <span style={{ width: 8, height: 8, borderRadius: '50%', background: mapColor, flexShrink: 0, display: 'inline-block' }} />}
+              <span className="tab-name">{data.maps[id].name}</span>
+              <span className="tab-close" onClick={(e) => { e.stopPropagation(); closeMap(id); }}>✕</span>
+            </div>
+          );
+        })}
         <div className="tab-add" onClick={addMap}>+ Nová mapa</div>
       </div>
+
+      {tabMenu && (
+        <div className="tab-color-menu" style={{ left: tabMenu.x, top: tabMenu.y }} onClick={e => e.stopPropagation()}>
+          <div className="tab-color-menu-title">Barva záložky</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(8, 1fr)', gap: 4, marginBottom: 6 }}>
+            {GROUP_COLORS.filter((_, i) => i % 4 === 1).map(c => (
+              <div key={c} style={{ width: 18, height: 18, borderRadius: 4, background: c, cursor: 'pointer', border: data.maps[tabMenu.id]?.color === c ? '2px solid var(--text)' : '1px solid rgba(0,0,0,0.1)' }}
+                onClick={() => setTabColor(tabMenu.id, c)} />
+            ))}
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
+            <span style={{ fontSize: 11, color: 'var(--text-muted)', cursor: 'pointer', padding: '2px 8px', borderRadius: 4, border: '1px solid var(--border)' }}
+              onClick={() => setTabColor(tabMenu.id, null)}>✕ bez barvy</span>
+          </div>
+        </div>
+      )}
       
       <div className="toolbar">
         <h1>Map</h1>
